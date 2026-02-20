@@ -351,6 +351,71 @@ textarea {
   border-radius: 12px;
 }
 
+/* Lift Cards List */
+.lift-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lift-card-item {
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  transition: var(--transition);
+}
+
+.lift-card-item:hover {
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow);
+}
+
+.lift-card-item.status-overdue {
+  border-left: 4px solid var(--accent-danger);
+}
+
+.lift-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.lift-card-header strong {
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.lift-card-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.lift-card-details span {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lift-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lift-card-actions .btn-small {
+  font-size: 11px;
+  padding: 5px 8px;
+}
+
 /* Map Link */
 .map-link {
   display: inline-block;
@@ -1468,12 +1533,9 @@ canvas {
 </div>
 <div class="card">
 <h3>📋 All Lifts</h3>
-<div class="scroll-table">
-<table>
-<thead><tr><th>Client</th><th>Address</th><th>Phone</th><th>Lift ID</th><th>Frequency</th><th>Status</th><th>History</th><th>Documents</th><th>Action</th><th>Report Fault</th><th>WhatsApp</th><th>Edit/Delete</th></tr></thead>
-<tbody id="liftTable"></tbody>
-</table>
-</div>
+<input type="text" id="liftSearch" placeholder="🔍 Search lifts by client, address, phone, or lift ID..." oninput="filterLiftTable()" style="max-width:100%;margin-bottom:10px">
+<div id="liftSearchCount" style="font-size:12px;color:var(--text-muted);margin-bottom:10px"></div>
+<div class="lift-cards-list" id="liftCardsList"></div>
 </div>
 </div>
 
@@ -1687,7 +1749,10 @@ canvas {
 <div id="tickets-tab" class="tab-content">
 <div class="card">
 <h3>🎫 Create Ticket</h3>
+<label style="display:block;margin:0 0 5px 0;font-weight:600;font-size:13px;color:var(--text-secondary)">Select Lift</label>
+<input type="text" id="ticketLiftSearch" placeholder="🔍 Search lift by client or lift ID..." oninput="filterTicketLiftDropdown()" style="margin-bottom:0">
 <select id="ticketLift"></select>
+<label style="display:block;margin:10px 0 5px 0;font-weight:600;font-size:13px;color:var(--text-secondary)">Select Technician</label>
 <select id="ticketTech"></select>
 <select id="ticketType">
 <option value="Service">🔧 Service</option>
@@ -1704,6 +1769,8 @@ canvas {
 </div>
 <div class="card">
 <h3>📊 All Tickets</h3>
+<input type="text" id="ticketTableSearch" placeholder="🔍 Search tickets by client, lift, tech, or ticket #..." oninput="filterTicketTable()" style="max-width:100%;margin-bottom:10px">
+<div id="ticketSearchCount" style="font-size:12px;color:var(--text-muted);margin-bottom:10px"></div>
 <div class="scroll-table">
 <table>
 <thead><tr><th>Ticket #</th><th>Client</th><th>Lift</th><th>Address</th><th>Type</th><th>Tech</th><th>Scheduled</th><th>Status</th><th>Map</th><th>Edit/Delete</th></tr></thead>
@@ -2944,41 +3011,105 @@ function debouncedRender(func, delay = 100) {
   renderTimeout = setTimeout(func, delay);
 }
 
-function renderAdmin(){
-  // Lifts Table - use document fragment for better performance
-  let liftTable=document.getElementById('liftTable');
-  if(!liftTable) return;
-  
-  function escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-  let rows = [];
+function renderLiftCards(){
+  let container=document.getElementById('liftCardsList');
+  if(!container) return;
+  let search=(document.getElementById('liftSearch')?.value||'').toLowerCase();
+  let cards=[];
+  let total=0;
   lifts.forEach((l,i)=>{
+    let searchStr=(l.client+' '+l.address+' '+l.phone+' '+l.lift).toLowerCase();
+    if(search && !searchStr.includes(search)) return;
+    total++;
     let daysSince=Math.floor((Date.now()-l.lastService)/(1000*60*60*24));
     let dueIn=l.frequency*30-daysSince;
     let status=dueIn<0?'⚠️ OVERDUE':(dueIn<7?'🟡 Due Soon':'✅ OK');
     let statusClass=dueIn<0?'status-overdue':'';
-    let faultyBadge=l.isFaulty?'<span style="background:#ff6b6b;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px">FAULTY</span>':'';
-
-    rows.push(`<tr class="${statusClass}">
-        <td>${escAttr(l.client)}</td>
-        <td>${escAttr(l.address)}</td>
-        <td>${escAttr(l.phone)}</td>
-        <td>${escAttr(l.lift)} ${faultyBadge}</td>
-        <td>${l.frequency} month(s)</td>
-        <td>${status} (${dueIn} days)</td>
-        <td><button onclick="viewLiftHistory('${escAttr(l.lift)}')" class="btn-small" style="background:#17a2b8;color:#fff">📚 History</button></td>
-        <td><button onclick="openDocumentsModal('${escAttr(l.lift)}')" class="btn-small" style="background:#6f42c1;color:#fff">📄 Docs</button></td>
-        <td><button onclick="sendServiceReminder('${escAttr(l.phone)}','${escAttr(l.client)}','${escAttr(l.lift)}','${escAttr(l.address)}')" class="btn-small btn-warning">Send Reminder</button></td>
-        <td><button onclick="openFaultReportModal(${i})" class="btn-small btn-danger">⚠️ Report Fault</button></td>
-        <td><a href="https://wa.me/${encodeURIComponent(l.phone)}" target="_blank" class="btn-small" style="background:#25d366;color:#fff;text-decoration:none;display:inline-block;padding:8px;border-radius:4px;font-size:12px">WhatsApp</a></td>
-        <td>
-          <button onclick="openEditLiftModal(${i})" class="btn-small btn-secondary">Edit</button>
-          <button onclick="deleteLift(${i})" class="btn-small btn-danger">Delete</button>
-        </td>
-      </tr>`);
+    let faultyBadge=l.isFaulty?'<span style="background:#ff6b6b;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;margin-left:6px">FAULTY</span>':'';
+    cards.push(`<div class="lift-card-item ${statusClass}">
+      <div class="lift-card-header">
+        <strong>${escAttr(l.client)} — ${escAttr(l.lift)} ${faultyBadge}</strong>
+        <span style="font-size:13px;font-weight:600">${status} (${dueIn}d)</span>
+      </div>
+      <div class="lift-card-details">
+        <span>📍 ${escAttr(l.address)}</span>
+        <span>📞 ${escAttr(l.phone)}</span>
+        <span>🔄 Every ${l.frequency} month(s)</span>
+      </div>
+      <div class="lift-card-actions">
+        <button onclick="viewLiftHistory('${escAttr(l.lift)}')" class="btn-small" style="background:#17a2b8;color:#fff">📚 History</button>
+        <button onclick="openDocumentsModal('${escAttr(l.lift)}')" class="btn-small" style="background:#6f42c1;color:#fff">📄 Docs</button>
+        <button onclick="sendServiceReminder('${escAttr(l.phone)}','${escAttr(l.client)}','${escAttr(l.lift)}','${escAttr(l.address)}')" class="btn-small btn-warning">Reminder</button>
+        <button onclick="openFaultReportModal(${i})" class="btn-small btn-danger">⚠️ Fault</button>
+        <a href="https://wa.me/${encodeURIComponent(l.phone)}" target="_blank" class="btn-small" style="background:#25d366;color:#fff;text-decoration:none;display:inline-block">WhatsApp</a>
+        <button onclick="openEditLiftModal(${i})" class="btn-small btn-secondary">Edit</button>
+        <button onclick="deleteLift(${i})" class="btn-small btn-danger">Delete</button>
+      </div>
+    </div>`);
   });
+  container.innerHTML=cards.length?cards.join(''):'<p style="color:var(--text-muted);text-align:center;padding:20px">No lifts found</p>';
+  let countEl=document.getElementById('liftSearchCount');
+  if(countEl) countEl.textContent=search?`Showing ${total} of ${lifts.length} lifts`:`${lifts.length} lifts total`;
+}
 
-  liftTable.innerHTML = rows.join('');
+function filterLiftTable(){
+  renderLiftCards();
+}
+
+function filterTicketLiftDropdown(){
+  let search=(document.getElementById('ticketLiftSearch')?.value||'').toLowerCase();
+  let select=document.getElementById('ticketLift');
+  if(!select) return;
+  select.innerHTML='<option value="">Select Lift</option>';
+  lifts.forEach((l,i)=>{
+    let searchStr=(l.client+' '+l.lift).toLowerCase();
+    if(search && !searchStr.includes(search)) return;
+    select.innerHTML+=`<option value="${i}">${escAttr(l.client)} - ${escAttr(l.lift)}</option>`;
+  });
+}
+
+function filterTicketTable(){
+  let search=(document.getElementById('ticketTableSearch')?.value||'').toLowerCase();
+  let adminTicketTable=document.getElementById('adminTicketTable');
+  if(!adminTicketTable) return;
+  adminTicketTable.innerHTML='';
+  let total=0;
+  tickets.forEach((t,i)=>{
+    let searchStr=(t.ticketNumber+' '+t.lift.client+' '+t.lift.lift+' '+t.lift.address+' '+(t.tech||'')+' '+(t.jobType||'')).toLowerCase();
+    if(search && !searchStr.includes(search)) return;
+    total++;
+    let statusClass=t.status==='Done'?'status-done':(t.scheduledDate<new Date().toISOString().split('T')[0]?'status-overdue':'status-open');
+    let faultyBadge=t.isFaulty?'<span style="background:#ff6b6b;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px">FAULTY</span>':'';
+    let incompleteBadge=t.isIncomplete?'<span style="background:#ffa726;color:#000;padding:2px 6px;border-radius:4px;font-size:11px">INCOMPLETE</span>':'';
+    let jobType=t.jobType||'Service';
+    adminTicketTable.innerHTML+=`
+      <tr class="${statusClass}">
+        <td>${t.ticketNumber}</td>
+        <td>${t.lift.client}</td>
+        <td>${t.lift.lift} ${faultyBadge} ${incompleteBadge}</td>
+        <td>${t.lift.address}</td>
+        <td>${jobType}</td>
+        <td>${t.tech||'N/A'}</td>
+        <td>${t.scheduledDate}</td>
+        <td>${t.status}</td>
+        <td><button onclick="openMap('${t.lift.address}')" class="btn-small">📍 Map</button></td>
+        <td>
+          <button onclick="openEditTicketModal(${i})" class="btn-small btn-secondary">Edit</button>
+          <button onclick="deleteTicket(${i})" class="btn-small btn-danger">Delete</button>
+        </td>
+      </tr>
+    `;
+  });
+  let countEl=document.getElementById('ticketSearchCount');
+  if(countEl) countEl.textContent=search?`Showing ${total} of ${tickets.length} tickets`:`${tickets.length} tickets total`;
+}
+
+function renderAdmin(){
+
+  // Lifts Cards - responsive card layout instead of wide table
+  renderLiftCards();
   
   // Techs Table
   let techTable=document.getElementById('techTable');
@@ -3011,35 +3142,9 @@ function renderAdmin(){
     adminTable.innerHTML = adminRows.join('');
   }
   
-  // Admin Ticket Table
-  let adminTicketTable=document.getElementById('adminTicketTable');
-  if(!adminTicketTable) return;
-  adminTicketTable.innerHTML='';
-  tickets.forEach((t,i)=>{
-    let statusClass=t.status==='Done'?'status-done':(t.scheduledDate<new Date().toISOString().split('T')[0]?'status-overdue':'status-open');
-    let faultyBadge=t.isFaulty?'<span style="background:#ff6b6b;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px">FAULTY</span>':'';
-    let incompleteBadge=t.isIncomplete?'<span style="background:#ffa726;color:#000;padding:2px 6px;border-radius:4px;font-size:11px">INCOMPLETE</span>':'';
-    let jobType=t.jobType||'Service';
-    
-    adminTicketTable.innerHTML+=`
-      <tr class="${statusClass}">
-        <td>${t.ticketNumber}</td>
-        <td>${t.lift.client}</td>
-        <td>${t.lift.lift} ${faultyBadge} ${incompleteBadge}</td>
-        <td>${t.lift.address}</td>
-        <td>${jobType}</td>
-        <td>${t.tech||'N/A'}</td>
-        <td>${t.scheduledDate}</td>
-        <td>${t.status}</td>
-        <td><button onclick="openMap('${t.lift.address}')" class="btn-small">📍 Map</button></td>
-        <td>
-          <button onclick="openEditTicketModal(${i})" class="btn-small btn-secondary">Edit</button>
-          <button onclick="deleteTicket(${i})" class="btn-small btn-danger">Delete</button>
-        </td>
-      </tr>
-    `;
-  });
-  
+  // Admin Ticket Table - render with search filter support
+  filterTicketTable();
+
   populateTicketDropdowns('ticketLift','ticketTech');
   checkReminders();
   checkFaulty();
