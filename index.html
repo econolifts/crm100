@@ -2089,10 +2089,14 @@ async function saveToFirebase(dataObj) {
 async function loadFromFirebase() {
   try {
     const snap = await DATA_REF.get();
-    return snap.exists ? snap.data() : null;
+    if (snap.exists) {
+      return { success: true, data: snap.data() };
+    } else {
+      return { success: true, data: null }; // No data yet (first launch)
+    }
   } catch(e) {
     console.error('Firebase load error:', e);
-    return null;
+    return { success: false, data: null, error: e };
   }
 }
 
@@ -2100,6 +2104,9 @@ async function loadFromFirebase() {
 function startRealtimeSync() {
   DATA_REF.onSnapshot((snap) => {
     if (!snap.exists) return;
+    // Skip remote updates while a local save is in progress to avoid
+    // overwriting data that hasn't been confirmed by Firebase yet
+    if (_saveInProgress) return;
     const d = snap.data();
     if (d.admins)          admins          = d.admins;
     if (d.lifts)           lifts           = d.lifts;
@@ -2159,18 +2166,25 @@ let reportingFaultLiftIndex=-1;
 let currentDocumentLiftId="";
 let locationUpdateInterval=null; // For periodic location updates
 
-function save(){
+let _saveInProgress = false;
+
+async function save(){
   // Save all data to Firebase (syncs to all phones automatically)
-  saveToFirebase({
-    admins,
-    lifts,
-    techs,
-    tickets,
-    inspections,
-    liftDocuments,
-    whatsappSettings,
-    techLocations
-  });
+  _saveInProgress = true;
+  try {
+    await saveToFirebase({
+      admins,
+      lifts,
+      techs,
+      tickets,
+      inspections,
+      liftDocuments,
+      whatsappSettings,
+      techLocations
+    });
+  } finally {
+    _saveInProgress = false;
+  }
   // Keep rememberedUser in localStorage (device-specific login preference)
 }
 
@@ -2214,14 +2228,15 @@ function initializeDemoData(){
     {client:"C.F. --Chris & Ina- Heyens",address:"32 Buitekant Street STILBAY",phone:"028 754 2336",lift:"EHL-L2/05",frequency:6,lastService:Date.now(),isFaulty:false}
   ];
   tickets=[];
-  save(); // saves to Firebase
+  // Note: caller should await save() after calling initializeDemoData()
   alert('App initialized! Please log in with credentials provided by your administrator.\n\nIMPORTANT: Change default passwords after first login via Settings.');
 }
 
-function resetData(){
+async function resetData(){
   if(confirm('⚠️ This will DELETE ALL DATA and reset to demo data.\n\nAre you absolutely sure?')){
     localStorage.removeItem('rememberedUser');
     initializeDemoData();
+    await save();
     location.reload();
   }
 }
@@ -5176,17 +5191,33 @@ function resolveFault(ticketIdx){
 window.onload = async function() {
   showLoader('Connecting to cloud...');
 
-  // Load data from Firebase
-  const cloudData = await loadFromFirebase();
+  // Load data from Firebase with retry on network failure
+  let result = null;
+  const MAX_RETRIES = 3;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    result = await loadFromFirebase();
+    if (result.success) break;
+    // Network error — retry with backoff instead of wiping data
+    console.warn(`Firebase load attempt ${attempt}/${MAX_RETRIES} failed, retrying...`);
+    if (attempt < MAX_RETRIES) {
+      await new Promise(r => setTimeout(r, attempt * 2000));
+    }
+  }
 
-  if (!cloudData) {
+  if (!result.success) {
+    // All retries failed — show error but DO NOT overwrite data with demo data
+    hideLoader();
+    alert('Could not connect to the cloud database. Please check your internet connection and refresh the page to try again.');
+    return;
+  }
+
+  if (!result.data) {
     // First ever launch — no data in Firebase yet, seed with demo data
-    await new Promise(resolve => {
-      initializeDemoData();
-      setTimeout(resolve, 1000); // give save() time to push to Firebase
-    });
+    initializeDemoData();
+    await save();
   } else {
     // Populate in-memory arrays from cloud
+    const cloudData = result.data;
     if (cloudData.admins)          admins          = cloudData.admins;
     if (cloudData.lifts)           lifts           = cloudData.lifts;
     if (cloudData.techs)           techs           = cloudData.techs;
