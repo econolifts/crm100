@@ -2372,17 +2372,17 @@ function stopLocationTracking(){
   }
 }
 
-function updateTechLocation(lat, lng){
+async function updateTechLocation(lat, lng){
   if(!currentTech) return;
-  
+
   techLocations[currentTech]={
     latitude: lat,
     longitude: lng,
     timestamp: new Date().toISOString(),
     accuracy: 'GPS'
   };
-  
-  save();
+
+  await save();
 }
 
 function renderTechTracking(){
@@ -2545,7 +2545,7 @@ function addLift(){
   
   showLoader('Adding lift...');
   
-  setTimeout(() => {
+  setTimeout(async () => {
     lifts.push({
       client,
       address,
@@ -2555,11 +2555,11 @@ function addLift(){
       lastService:Date.now(),
       isFaulty:false
     });
-    
-    save();
+
+    await save();
     renderAdmin();
     hideLoader();
-    
+
     document.getElementById('client').value='';
   document.getElementById('clientAddress').value='';
   document.getElementById('clientPhone').value='';
@@ -2578,41 +2578,41 @@ function importCSV(){
   }
   
   let reader=new FileReader();
-  reader.onload=function(e){
+  reader.onload=async function(e){
     let text=e.target.result;
     let lines=text.split('\n');
     let imported=0;
     let skipped=0;
-    
+
     // Skip header row (line 0)
     for(let i=1;i<lines.length;i++){
       let line=lines[i].trim();
       if(!line) continue;
-      
+
       // Parse CSV line (handle commas in quotes)
       let cols=parseCSVLine(line);
-      
+
       if(cols.length<5) continue;
-      
+
       let client=cols[0].trim();
       let address=cols[1].trim();
       let phone=cols[2].trim();
       let liftId=cols[3].trim();
       let frequency=cols[4].trim();
-      
+
       // Skip if client or lift ID is empty
       if(!client||!liftId){
         skipped++;
         continue;
       }
-      
+
       // Check if lift already exists
       let exists=lifts.find(l=>l.lift===liftId);
       if(exists){
         skipped++;
         continue;
       }
-      
+
       // Default frequency to 6 months if not specified or invalid
       let freq=6;
       if(frequency){
@@ -2621,7 +2621,7 @@ function importCSV(){
           freq=parsed;
         }
       }
-      
+
       lifts.push({
         client:client,
         address:address,
@@ -2633,13 +2633,13 @@ function importCSV(){
       });
       imported++;
     }
-    
-    save();
+
+    await save();
     renderAdmin();
     fileInput.value=''; // Clear file input
     alert(`CSV Import Complete!\n\nImported: ${imported} lifts\nSkipped: ${skipped} (duplicates or invalid)`);
   };
-  
+
   reader.readAsText(file);
 }
 
@@ -2666,10 +2666,10 @@ function parseCSVLine(line){
 }
 
 
-function deleteLift(i){
+async function deleteLift(i){
   if(confirm('Delete this lift?')){
     lifts.splice(i,1);
-    save();
+    await save();
     renderAdmin();
   }
 }
@@ -2690,7 +2690,7 @@ function closeEditLiftModal(){
   editingLiftIndex=-1;
 }
 
-function updateLift(){
+async function updateLift(){
   if(editingLiftIndex===-1) return;
   let newFreq=parseInt(document.getElementById('editLiftFrequency').value);
   if(isNaN(newFreq) || newFreq<=0){
@@ -2702,7 +2702,7 @@ function updateLift(){
   lifts[editingLiftIndex].phone=document.getElementById('editLiftPhone').value;
   lifts[editingLiftIndex].lift=document.getElementById('editLiftId').value;
   lifts[editingLiftIndex].frequency=newFreq;
-  save();
+  await save();
   renderAdmin();
   closeEditLiftModal();
   alert('Lift updated!');
@@ -2749,36 +2749,36 @@ function addTech(){
   // Show loader
   showLoader('Adding technician...');
   
-  setTimeout(() => {
+  setTimeout(async () => {
     // Add technician
     techs.push({
       name: name,
       username: username,
       pass: pass
     });
-    
-    save();
+
+    await save();
     renderAdmin();
-    
+
     // Clear form
     document.getElementById('techName').value='';
     document.getElementById('techUsername').value='';
     document.getElementById('techPass').value='';
-    
+
     hideLoader();
-    
+
     // Success message with credentials
     alert(`✅ Technician added successfully!\n\n👤 Name: ${name}\n🔑 Username: ${username}\n🔐 Password: ${pass}\n\n⚠️ Save these credentials!\nThe technician will need them to login.`);
-    
+
     // Focus back to name field for next entry
     document.getElementById('techName').focus();
   }, 100);
 }
 
-function deleteTech(i){
+async function deleteTech(i){
   if(confirm('Delete this technician?')){
     techs.splice(i,1);
-    save();
+    await save();
     renderAdmin();
   }
 }
@@ -2811,7 +2811,7 @@ function createTicket(){
     });
   });
   
-  Promise.all(processPhotos).then(()=>{
+  Promise.all(processPhotos).then(async ()=>{
     let isFaulty=jobType==='Faulty';
 
     // Mark lift as faulty if this is a fault ticket
@@ -2835,7 +2835,7 @@ function createTicket(){
       priority:isFaulty?'Normal':undefined
     });
 
-    save();
+    await save();
     renderAdmin();
 
     // Update faults tab if this is a fault ticket
@@ -2852,10 +2852,10 @@ function createTicket(){
   });
 }
 
-function deleteTicket(i){
+async function deleteTicket(i){
   if(confirm('Delete this ticket?')){
     tickets.splice(i,1);
-    save();
+    await save();
     renderAdmin();
     renderTech();
   }
@@ -2882,7 +2882,7 @@ function closeEditTicketModal(){
   editingTicketIndex=-1;
 }
 
-function updateTicket(){
+async function updateTicket(){
   if(editingTicketIndex===-1) return;
   let liftIdx=parseInt(document.getElementById('editTicketLift').value);
   tickets[editingTicketIndex].lift=lifts[liftIdx];
@@ -2892,7 +2892,7 @@ function updateTicket(){
   tickets[editingTicketIndex].scheduledDate=document.getElementById('editTicketDate').value;
   tickets[editingTicketIndex].note=document.getElementById('editTicketNote').value;
   tickets[editingTicketIndex].status=document.getElementById('editTicketStatus').value;
-  save();
+  await save();
   renderAdmin();
   renderTech();
   closeEditTicketModal();
@@ -2939,30 +2939,30 @@ function openTechFaultReport(){
   openFaultReportModal(liftIdx);
 }
 
-function submitFaultReport(){
+async function submitFaultReport(){
   if(reportingFaultLiftIndex===-1) return;
-  
+
   let techIdx=parseInt(document.getElementById('faultTechSelect').value);
   let description=document.getElementById('faultDescription').value.trim();
   let priority=document.getElementById('faultPriority').value;
-  
+
   if(isNaN(techIdx)){
     alert('Please select a technician');
     return;
   }
-  
+
   if(!description){
     alert('Please describe the fault');
     return;
   }
-  
+
   let lift=lifts[reportingFaultLiftIndex];
   let today=new Date().toISOString().split('T')[0];
   let ticketNumber=getNextTicketNumber();
-  
+
   // Mark lift as faulty
   lifts[reportingFaultLiftIndex].isFaulty=true;
-  
+
   // Create urgent fault ticket
   tickets.push({
     ticketNumber,
@@ -2978,8 +2978,8 @@ function submitFaultReport(){
     isIncomplete:false,
     priority:priority
   });
-  
-  save();
+
+  await save();
   renderAdmin();
 
   // Update tech view so the new fault ticket appears immediately
@@ -3527,7 +3527,7 @@ function completeJob(){
     });
   });
   
-  Promise.all(processPhotos).then(()=>{
+  Promise.all(processPhotos).then(async ()=>{
     if(!ticket.notes) ticket.notes=[];
     ticket.notes.push({
       tech:currentTech,
@@ -3535,21 +3535,21 @@ function completeJob(){
       time:new Date().toLocaleString(),
       photos:photos
     });
-    
+
     if(!ticket.photos) ticket.photos=[];
     ticket.photos.push(...photos);
-    
+
     if(markIncomplete){
       ticket.isIncomplete=true;
       alert('Job marked as INCOMPLETE - you can return to complete it later');
     } else {
       ticket.status='Done';
       ticket.completed=new Date().toISOString();
-      
+
       let liftIdx=lifts.findIndex(l=>l.lift===ticket.lift.lift);
       if(liftIdx!==-1){
         lifts[liftIdx].lastService=Date.now();
-        
+
         if(markFaulty){
           lifts[liftIdx].isFaulty=true;
           ticket.isFaulty=true;
@@ -3558,11 +3558,11 @@ function completeJob(){
           ticket.isFaulty=false;
         }
       }
-      
+
       // WhatsApp notification removed - admin can send manually if needed
     }
-    
-    save();
+
+    await save();
     renderTech();
     closeNoteModal();
   });
@@ -3931,23 +3931,23 @@ function generateReport(){
 }
 
 // Admin Management Functions
-function addAdmin(){
+async function addAdmin(){
   let name=document.getElementById('adminName').value.trim();
   let username=document.getElementById('adminUsername').value.trim().toLowerCase();
   let pass=document.getElementById('adminPass').value.trim();
-  
+
   if(!name||!username||!pass){
     alert('Please fill all fields');
     return;
   }
-  
+
   if(admins.find(a=>a.username.toLowerCase()===username)){
     alert('Admin with this username already exists');
     return;
   }
-  
+
   admins.push({name,username,pass});
-  save();
+  await save();
   renderAdmin();
   document.getElementById('adminName').value='';
   document.getElementById('adminUsername').value='';
@@ -3955,51 +3955,51 @@ function addAdmin(){
   alert('Admin added successfully!');
 }
 
-function deleteAdmin(i){
+async function deleteAdmin(i){
   if(admins.length===1){
     alert('Cannot delete the last admin!');
     return;
   }
   if(confirm('Delete this admin?')){
     admins.splice(i,1);
-    save();
+    await save();
     renderAdmin();
   }
 }
 
-function changeAdminPassword(){
+async function changeAdminPassword(){
   let current=document.getElementById('currentPassword').value.trim();
   let newPass=document.getElementById('newPassword').value.trim();
   let confirm=document.getElementById('confirmPassword').value.trim();
-  
+
   if(!current||!newPass||!confirm){
     alert('Please fill all password fields');
     return;
   }
-  
+
   let admin=admins.find(a=>a.username===currentAdmin);
   if(!admin){
     alert('Admin not found');
     return;
   }
-  
+
   if(admin.pass!==current){
     alert('Current password is incorrect');
     return;
   }
-  
+
   if(newPass!==confirm){
     alert('New passwords do not match');
     return;
   }
-  
+
   if(newPass.length<6){
     alert('Password must be at least 6 characters');
     return;
   }
-  
+
   admin.pass=newPass;
-  save();
+  await save();
   document.getElementById('currentPassword').value='';
   document.getElementById('newPassword').value='';
   document.getElementById('confirmPassword').value='';
@@ -4043,16 +4043,16 @@ function importData(input){
   }
   
   let reader=new FileReader();
-  reader.onload=function(e){
+  reader.onload=async function(e){
     try{
       let importedData=JSON.parse(e.target.result);
-      
+
       // Validate the data structure
       if(!importedData.admins||!importedData.lifts||!importedData.techs||!importedData.tickets){
         alert('❌ Invalid backup file format');
         return;
       }
-      
+
       // Restore data
       admins=importedData.admins||admins;
       lifts=importedData.lifts||[];
@@ -4060,55 +4060,55 @@ function importData(input){
       tickets=importedData.tickets||[];
       inspections=importedData.inspections||[];
       liftDocuments=importedData.liftDocuments||[];
-      
-      save();
-      
+
+      await save();
+
       alert(`✅ Data imported successfully!\n\nRestored:\n- ${lifts.length} lifts\n- ${techs.length} technicians\n- ${tickets.length} tickets\n- ${liftDocuments.length} documents\n\nPage will refresh now.`);
-      
+
       location.reload();
     } catch(err){
       alert('❌ Error reading backup file: '+err.message);
     }
   };
-  
+
   reader.readAsText(file);
   input.value='';
 }
 
 
-function changeTechPassword(){
+async function changeTechPassword(){
   let current=document.getElementById('techCurrentPassword').value.trim();
   let newPass=document.getElementById('techNewPassword').value.trim();
   let confirm=document.getElementById('techConfirmPassword').value.trim();
-  
+
   if(!current||!newPass||!confirm){
     alert('Please fill all password fields');
     return;
   }
-  
+
   let tech=techs.find(t=>t.name===currentTech);
   if(!tech){
     alert('Technician not found');
     return;
   }
-  
+
   if(tech.pass!==current){
     alert('Current password is incorrect');
     return;
   }
-  
+
   if(newPass!==confirm){
     alert('New passwords do not match');
     return;
   }
-  
+
   if(newPass.length<6){
     alert('Password must be at least 6 characters');
     return;
   }
-  
+
   tech.pass=newPass;
-  save();
+  await save();
   document.getElementById('techCurrentPassword').value='';
   document.getElementById('techNewPassword').value='';
   document.getElementById('techConfirmPassword').value='';
@@ -4312,7 +4312,7 @@ function uploadDocument(){
   }
   
   let reader=new FileReader();
-  reader.onload=function(e){
+  reader.onload=async function(e){
     liftDocuments.push({
       liftId:currentDocumentLiftId,
       title:title,
@@ -4322,12 +4322,12 @@ function uploadDocument(){
       uploadedDate:new Date().toISOString(),
       uploadedBy:currentAdmin||currentTech
     });
-    
-    save();
+
+    await save();
     openDocumentsModal(currentDocumentLiftId); // Refresh the modal
     alert('Document uploaded successfully!');
   };
-  
+
   reader.readAsDataURL(file);
 }
 
@@ -4358,7 +4358,7 @@ function downloadDocument(docIndex){
   }
 }
 
-function deleteDocument(docIndex){
+async function deleteDocument(docIndex){
   if(!confirm('Delete this document?')) return;
 
   let docs=liftDocuments.filter(d=>d.liftId===currentDocumentLiftId);
@@ -4368,7 +4368,7 @@ function deleteDocument(docIndex){
     let globalIndex=liftDocuments.findIndex(d=>d.liftId===doc.liftId && d.fileName===doc.fileName && d.uploadDate===doc.uploadDate);
     if(globalIndex===-1) return;
     liftDocuments.splice(globalIndex,1);
-    save();
+    await save();
     openDocumentsModal(currentDocumentLiftId); // Refresh
     alert('Document deleted');
   }
@@ -4430,16 +4430,16 @@ function renderInspections(){
   });
 }
 
-function recordInspection(liftIdx){
+async function recordInspection(liftIdx){
   let lift=lifts[liftIdx];
   let date=prompt('Enter inspection date (YYYY-MM-DD):',new Date().toISOString().split('T')[0]);
-  
+
   if(!date) return;
-  
+
   let inspectionDate=new Date(date);
   let nextDue=new Date(inspectionDate);
   nextDue.setFullYear(nextDue.getFullYear()+1); // Annual inspection
-  
+
   let inspIdx=inspections.findIndex(i=>i.liftId===lift.lift);
   if(inspIdx===-1){
     inspections.push({
@@ -4451,8 +4451,8 @@ function recordInspection(liftIdx){
     inspections[inspIdx].lastInspection=inspectionDate.toISOString();
     inspections[inspIdx].nextDue=nextDue.toISOString();
   }
-  
-  save();
+
+  await save();
   renderInspections();
   alert(`Inspection recorded for ${lift.lift}. Next due: ${nextDue.toLocaleDateString()}`);
 }
@@ -4767,7 +4767,7 @@ function drag(ev,ticketIdx){
   },{once:true});
 }
 
-function drop(ev,newStatus){
+async function drop(ev,newStatus){
   ev.preventDefault();
   let ticketIdxStr=ev.dataTransfer.getData("ticketIdx");
   if(ticketIdxStr!==''){
@@ -4777,7 +4777,7 @@ function drop(ev,newStatus){
     if(newStatus==='Done' && !tickets[ticketIdx].completed){
       tickets[ticketIdx].completed=new Date().toISOString();
     }
-    save();
+    await save();
     updateKanbanBoard();
     renderAdmin();
   }
@@ -5159,29 +5159,29 @@ function filterFaults(){
   renderActiveFaults();
 }
 
-function markFaultInProgress(ticketIdx){
+async function markFaultInProgress(ticketIdx){
   tickets[ticketIdx].status='In Progress';
-  save();
+  await save();
   renderFaults();
   renderAdmin();
   alert('Fault marked as In Progress');
 }
 
-function resolveFault(ticketIdx){
+async function resolveFault(ticketIdx){
   if(!confirm('Mark this fault as resolved? This will mark it as Done.')){
     return;
   }
-  
+
   tickets[ticketIdx].status='Done';
   tickets[ticketIdx].completed=new Date().toISOString();
-  
+
   // Update the lift's faulty status
   let liftIdx=lifts.findIndex(l=>l.lift===tickets[ticketIdx].lift.lift);
   if(liftIdx!==-1){
     lifts[liftIdx].isFaulty=false;
   }
-  
-  save();
+
+  await save();
   renderFaults();
   renderAdmin();
   alert('✅ Fault resolved successfully!');
@@ -5230,7 +5230,7 @@ window.onload = async function() {
     // Migration: ensure Ivan Uys technician exists
     if (!techs.find(t => t.username === 'ivan')) {
       techs.push({name:"Ivan Uys", username:"ivan", pass:"1986"});
-      save();
+      await save();
     }
   }
 
