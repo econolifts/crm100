@@ -1282,14 +1282,6 @@ canvas {
 <button onclick="login()">Login</button>
 <p id="msg" style="color:red;text-align:center"></p>
 
-<div class="help-text">
-  <strong>📝 Default Logins:</strong><br>
-  <strong>Admin:</strong> Username: <code>admin</code> | Password: <code>admin123</code><br>
-  <strong>Tech 1:</strong> Username: <code>john</code> | Password: <code>tech1</code><br>
-  <strong>Tech 2:</strong> Username: <code>sarah</code> | Password: <code>tech2</code><br>
-  <strong>Tech 3:</strong> Username: <code>ivan</code> | Password: <code>1986</code>
-</div>
-
 <div style="text-align:center;margin-top:15px;padding:10px;background:#f8f9fa;border-radius:6px">
   <div style="font-size:12px;color:#666">
     📞 <strong>044 873 2934</strong> | 📧 <strong><a href="/cdn-cgi/l/email-protection#dabbbeb7b3b49abfb9b5b4b5b2b5b7bfb6b3bcaea9f4b9b5f4a0bb"><span class="__cf_email__" data-cfemail="9cfdf8f1f5f2dcf9fff3f2f3f4f3f1f9f0f5fae8efb2fff3b2e6fd">[email&#160;protected]</span></a></strong><br>
@@ -2325,9 +2317,9 @@ function updateLoginPlaceholders(){
   let usernameField=document.getElementById('username');
   
   if(type==="admin"){
-    usernameField.placeholder="Username (e.g., admin)";
+    usernameField.placeholder="Username";
   } else {
-    usernameField.placeholder="Username (e.g., john, sarah)";
+    usernameField.placeholder="Username";
   }
 }
 
