@@ -416,6 +416,72 @@ textarea {
   padding: 5px 8px;
 }
 
+/* Client Cards */
+.client-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.client-card-item {
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  transition: var(--transition);
+}
+
+.client-card-item:hover {
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow);
+}
+
+.client-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.client-card-header strong {
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.client-card-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.client-card-details span {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.client-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.client-lift-badge {
+  display: inline-block;
+  background: var(--accent-primary);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 /* Map Link */
 .map-link {
   display: inline-block;
@@ -1355,6 +1421,7 @@ canvas {
 <button class="tab" onclick="showTab('tickets',event)">🎫 Tickets</button>
 <button class="tab" onclick="showTab('reports',event)">📈 Reports</button>
 <button class="tab" onclick="showTab('reminders',event)">⏰ Reminders <span id="reminderCount" class="reminder-badge" style="display:none">0</span></button>
+<button class="tab" onclick="showTab('clients',event)">👥 Clients</button>
 <button class="tab" onclick="showTab('admins',event)">👤 Admins</button>
 <button class="tab" onclick="showTab('settings',event)">⚙️ Settings</button>
 </div>
@@ -1508,6 +1575,38 @@ canvas {
 <!-- Tech Tracking Tab -->
 <div id="tracking-tab" class="tab-content">
 <div id="tech-tracking-content"></div>
+</div>
+
+<!-- Clients Tab -->
+<div id="clients-tab" class="tab-content">
+<div class="card">
+<h2>👥 Client Database</h2>
+<p style="color:var(--text-muted);font-size:14px">Manage all client profiles, contact details and their associated lifts</p>
+</div>
+
+<div class="card">
+<h3>➕ Add New Client</h3>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px">
+<input id="clientDbName" placeholder="Company / Client Name *">
+<input id="clientDbContact" placeholder="Contact Person">
+<input id="clientDbPhone" placeholder="Phone (e.g. 27821234567)">
+<input id="clientDbEmail" placeholder="Email Address">
+<input id="clientDbAddress" placeholder="Physical Address">
+<textarea id="clientDbNotes" placeholder="Notes (optional)" style="resize:vertical;min-height:60px;font-family:inherit;font-size:14px;padding:10px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-tertiary);color:var(--text-primary)"></textarea>
+</div>
+<button onclick="addClient()" class="btn-success" style="margin-top:14px">➕ Add Client</button>
+</div>
+
+<div class="card">
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+<h3 style="margin:0">📋 All Clients</h3>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+<input type="text" id="clientSearch" placeholder="🔍 Search clients..." oninput="renderClients()" style="max-width:260px">
+<span id="clientSearchCount" style="font-size:12px;color:var(--text-muted)"></span>
+</div>
+</div>
+<div id="clientCardsList"></div>
+</div>
 </div>
 
 <div id="lifts-tab" class="tab-content">
@@ -1992,6 +2091,21 @@ canvas {
 </div>
 </div>
 
+<!-- Modal for editing clients -->
+<div id="editClientModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000">
+<div style="background:#1e293b;color:#f1f5f9;margin:5% auto;padding:24px;max-width:440px;border-radius:12px;max-height:85%;overflow-y:auto;border:1px solid #334155">
+<h3 style="margin:0 0 16px">✏️ Edit Client</h3>
+<input id="editClientName" placeholder="Company / Client Name *" style="margin-bottom:10px">
+<input id="editClientContact" placeholder="Contact Person" style="margin-bottom:10px">
+<input id="editClientPhone" placeholder="Phone" style="margin-bottom:10px">
+<input id="editClientEmail" placeholder="Email Address" style="margin-bottom:10px">
+<input id="editClientAddress" placeholder="Physical Address" style="margin-bottom:10px">
+<textarea id="editClientNotes" placeholder="Notes (optional)" style="resize:vertical;min-height:70px;width:100%;font-family:inherit;font-size:14px;padding:10px;border:1px solid #334155;border-radius:8px;background:#0f172a;color:#f1f5f9;margin-bottom:14px"></textarea>
+<button onclick="updateClient()" class="btn-success">Update Client</button>
+<button onclick="closeEditClientModal()" class="btn-secondary">Cancel</button>
+</div>
+</div>
+
 <!-- Modal for editing tickets -->
 <div id="editTicketModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000">
 <div style="background:#fff;margin:5% auto;padding:20px;max-width:400px;border-radius:8px;max-height:85%;overflow-y:auto">
@@ -2114,6 +2228,7 @@ function startRealtimeSync() {
     if (d.tickets)         tickets         = d.tickets;
     if (d.inspections)     inspections     = d.inspections;
     if (d.liftDocuments)   liftDocuments   = d.liftDocuments;
+    if (d.clients)         clients         = d.clients;
     if (d.whatsappSettings) whatsappSettings = d.whatsappSettings;
     if (d.techLocations)   techLocations   = d.techLocations;
     // Re-render whatever view is active
@@ -2155,12 +2270,14 @@ let techs=[];
 let tickets=[];
 let inspections=[];
 let liftDocuments=[];
+let clients=[];
 let whatsappSettings={language:'en',businessNumber:'',apiKey:'',quickReplies:[]};
 let techLocations={};
 let currentTech="";
 let currentAdmin="";
 let currentTicketIndex=-1;
 let editingLiftIndex=-1;
+let editingClientIndex=-1;
 let editingTicketIndex=-1;
 let reportingFaultLiftIndex=-1;
 let currentDocumentLiftId="";
@@ -2179,6 +2296,7 @@ async function save(){
       tickets,
       inspections,
       liftDocuments,
+      clients,
       whatsappSettings,
       techLocations
     });
@@ -2517,6 +2635,7 @@ function showTab(tab,ev){
   if(tab==='calendar') renderCalendar();
   if(tab==='tracking') renderTechTracking();
   if(tab==='lifts') renderAdmin();
+  if(tab==='clients') renderClients();
 }
 
 function showTechTab(tab,ev){
@@ -4016,7 +4135,8 @@ function exportData(){
     techs:techs,
     tickets:tickets,
     inspections:inspections,
-    liftDocuments:liftDocuments
+    liftDocuments:liftDocuments,
+    clients:clients
   };
   
   let dataStr=JSON.stringify(exportData,null,2);
@@ -4060,6 +4180,7 @@ function importData(input){
       tickets=importedData.tickets||[];
       inspections=importedData.inspections||[];
       liftDocuments=importedData.liftDocuments||[];
+      clients=importedData.clients||[];
 
       await save();
 
@@ -5188,6 +5309,166 @@ async function resolveFault(ticketIdx){
 }
 
 // ── App Startup (Firebase) ──────────────────────────────────────
+// ── Client Database Functions ──────────────────────────────────
+
+function renderClients() {
+  const container = document.getElementById('clientCardsList');
+  if (!container) return;
+  const search = (document.getElementById('clientSearch')?.value || '').toLowerCase();
+  const cards = [];
+  let shown = 0;
+
+  clients.forEach((c, i) => {
+    const searchStr = (c.name + ' ' + c.contactPerson + ' ' + c.phone + ' ' + c.email + ' ' + c.address).toLowerCase();
+    if (search && !searchStr.includes(search)) return;
+    shown++;
+
+    // Count lifts linked to this client (match by name)
+    const linkedLifts = lifts.filter(l => l.client && l.client.toLowerCase() === c.name.toLowerCase());
+    const openTickets = tickets.filter(t => {
+      const liftObj = lifts.find(l => l.lift === t.lift);
+      return liftObj && liftObj.client && liftObj.client.toLowerCase() === c.name.toLowerCase() && t.status !== 'Done';
+    });
+
+    const liftBadge = linkedLifts.length
+      ? `<span class="client-lift-badge">🏢 ${linkedLifts.length} lift${linkedLifts.length > 1 ? 's' : ''}</span>`
+      : `<span style="font-size:11px;color:var(--text-muted)">No lifts yet</span>`;
+
+    const ticketBadge = openTickets.length
+      ? `<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:6px">🎫 ${openTickets.length} open</span>`
+      : '';
+
+    const whatsappLink = c.phone
+      ? `<a href="https://wa.me/${encodeURIComponent(c.phone)}" target="_blank" class="btn-small" style="background:#25d366;color:#fff;text-decoration:none;display:inline-block">WhatsApp</a>`
+      : '';
+
+    const emailLink = c.email
+      ? `<a href="mailto:${encodeURIComponent(c.email)}" class="btn-small" style="background:#6366f1;color:#fff;text-decoration:none;display:inline-block">Email</a>`
+      : '';
+
+    const notesHtml = c.notes
+      ? `<div style="font-size:12px;color:var(--text-muted);margin-top:6px;font-style:italic">📝 ${escAttr(c.notes)}</div>`
+      : '';
+
+    cards.push(`<div class="client-card-item">
+  <div class="client-card-header">
+    <strong>👤 ${escAttr(c.name)}</strong>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${liftBadge}${ticketBadge}</div>
+  </div>
+  <div class="client-card-details">
+    ${c.contactPerson ? `<span>🧑 ${escAttr(c.contactPerson)}</span>` : ''}
+    ${c.phone ? `<span>📞 ${escAttr(c.phone)}</span>` : ''}
+    ${c.email ? `<span>✉️ ${escAttr(c.email)}</span>` : ''}
+    ${c.address ? `<span>📍 ${escAttr(c.address)}</span>` : ''}
+  </div>
+  ${notesHtml}
+  <div class="client-card-actions" style="margin-top:10px">
+    <button onclick="viewClientLifts('${escAttr(c.name)}')" class="btn-small" style="background:#17a2b8;color:#fff">🏢 View Lifts</button>
+    ${whatsappLink}
+    ${emailLink}
+    <button onclick="openEditClientModal(${i})" class="btn-small btn-secondary">Edit</button>
+    <button onclick="deleteClient(${i})" class="btn-small btn-danger">Delete</button>
+  </div>
+</div>`);
+  });
+
+  container.innerHTML = cards.length
+    ? `<div class="client-cards-list">${cards.join('')}</div>`
+    : '<p style="color:var(--text-muted);text-align:center;padding:20px">No clients found</p>';
+
+  const countEl = document.getElementById('clientSearchCount');
+  if (countEl) countEl.textContent = search ? `Showing ${shown} of ${clients.length} clients` : `${clients.length} client${clients.length !== 1 ? 's' : ''} total`;
+}
+
+function addClient() {
+  const name = document.getElementById('clientDbName').value.trim();
+  const contactPerson = document.getElementById('clientDbContact').value.trim();
+  const phone = document.getElementById('clientDbPhone').value.trim();
+  const email = document.getElementById('clientDbEmail').value.trim();
+  const address = document.getElementById('clientDbAddress').value.trim();
+  const notes = document.getElementById('clientDbNotes').value.trim();
+
+  if (!name) {
+    alert('Please enter a client name');
+    return;
+  }
+  if (clients.find(c => c.name.toLowerCase() === name.toLowerCase())) {
+    alert('A client with that name already exists');
+    return;
+  }
+
+  showLoader('Adding client...');
+  setTimeout(async () => {
+    clients.push({ id: Date.now() + '-' + Math.random().toString(36).substr(2,6), name, contactPerson, phone, email, address, notes, createdAt: Date.now() });
+    await save();
+    renderClients();
+    hideLoader();
+    document.getElementById('clientDbName').value = '';
+    document.getElementById('clientDbContact').value = '';
+    document.getElementById('clientDbPhone').value = '';
+    document.getElementById('clientDbEmail').value = '';
+    document.getElementById('clientDbAddress').value = '';
+    document.getElementById('clientDbNotes').value = '';
+    alert('Client added successfully!');
+  }, 100);
+}
+
+function openEditClientModal(i) {
+  editingClientIndex = i;
+  const c = clients[i];
+  document.getElementById('editClientName').value = c.name;
+  document.getElementById('editClientContact').value = c.contactPerson || '';
+  document.getElementById('editClientPhone').value = c.phone || '';
+  document.getElementById('editClientEmail').value = c.email || '';
+  document.getElementById('editClientAddress').value = c.address || '';
+  document.getElementById('editClientNotes').value = c.notes || '';
+  document.getElementById('editClientModal').style.display = 'block';
+}
+
+function closeEditClientModal() {
+  editingClientIndex = -1;
+  document.getElementById('editClientModal').style.display = 'none';
+}
+
+async function updateClient() {
+  if (editingClientIndex === -1) return;
+  const name = document.getElementById('editClientName').value.trim();
+  if (!name) { alert('Client name is required'); return; }
+
+  clients[editingClientIndex].name = name;
+  clients[editingClientIndex].contactPerson = document.getElementById('editClientContact').value.trim();
+  clients[editingClientIndex].phone = document.getElementById('editClientPhone').value.trim();
+  clients[editingClientIndex].email = document.getElementById('editClientEmail').value.trim();
+  clients[editingClientIndex].address = document.getElementById('editClientAddress').value.trim();
+  clients[editingClientIndex].notes = document.getElementById('editClientNotes').value.trim();
+  await save();
+  renderClients();
+  closeEditClientModal();
+  alert('Client updated!');
+}
+
+function deleteClient(i) {
+  const c = clients[i];
+  if (!confirm(`Delete client "${c.name}"?\n\nThis only removes the client record — their lifts and tickets are not affected.`)) return;
+  showLoader('Deleting client...');
+  setTimeout(async () => {
+    clients.splice(i, 1);
+    await save();
+    renderClients();
+    hideLoader();
+  }, 100);
+}
+
+function viewClientLifts(clientName) {
+  const clientLifts = lifts.filter(l => l.client && l.client.toLowerCase() === clientName.toLowerCase());
+  if (clientLifts.length === 0) {
+    alert(`No lifts found for "${clientName}".\n\nYou can add a lift for this client in the Lifts tab.`);
+    return;
+  }
+  const lines = clientLifts.map(l => `• ${l.lift} — ${l.address} (every ${l.frequency} month${l.frequency > 1 ? 's' : ''})`).join('\n');
+  alert(`Lifts for "${clientName}" (${clientLifts.length}):\n\n${lines}\n\nTip: Open the Lifts tab to manage these lifts in detail.`);
+}
+
 window.onload = async function() {
   showLoader('Connecting to cloud...');
 
@@ -5224,6 +5505,7 @@ window.onload = async function() {
     if (cloudData.tickets)         tickets         = cloudData.tickets;
     if (cloudData.inspections)     inspections     = cloudData.inspections;
     if (cloudData.liftDocuments)   liftDocuments   = cloudData.liftDocuments;
+    if (cloudData.clients)         clients         = cloudData.clients;
     if (cloudData.whatsappSettings) whatsappSettings = cloudData.whatsappSettings;
     if (cloudData.techLocations)   techLocations   = cloudData.techLocations;
 
