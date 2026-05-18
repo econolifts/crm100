@@ -2060,6 +2060,7 @@ canvas {
 <!-- Firebase CDN (compat version for plain HTML) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <script>
 // ── Firebase Init ──────────────────────────────────────────────
 const firebaseConfig = {
@@ -2072,6 +2073,7 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const storage = firebase.storage();
 
 // ── Firestore helpers ──────────────────────────────────────────
 // All app data lives in a single Firestore document: crm/data
@@ -2127,6 +2129,13 @@ function startRealtimeSync() {
   }, (err) => {
     console.error('Realtime sync error:', err);
   });
+}
+
+// Upload a File object to Firebase Storage and return its download URL
+async function uploadFileToStorage(file, path) {
+  const ref = storage.ref(path);
+  await ref.put(file);
+  return await ref.getDownloadURL();
 }
 
 // Loading Indicator Functions
@@ -2517,6 +2526,15 @@ function showTab(tab,ev){
   if(tab==='calendar') renderCalendar();
   if(tab==='tracking') renderTechTracking();
   if(tab==='lifts') renderAdmin();
+  if(tab==='settings'){
+    renderQuickReplies();
+    const langEl=document.getElementById('whatsappLanguage');
+    const numEl=document.getElementById('whatsappBusinessNumber');
+    const keyEl=document.getElementById('whatsappApiKey');
+    if(langEl) langEl.value=whatsappSettings.language||'en';
+    if(numEl) numEl.value=whatsappSettings.businessNumber||'';
+    if(keyEl) keyEl.value=whatsappSettings.apiKey||'';
+  }
 }
 
 function showTechTab(tab,ev){
@@ -2798,19 +2816,14 @@ function createTicket(){
   
   let ticketNumber=getNextTicketNumber();
   
-  // Convert photos to base64
+  // Upload photos to Firebase Storage
   let photos=[];
-  let processPhotos=Array.from(photoFiles).map(file=>{
-    return new Promise((resolve)=>{
-      let reader=new FileReader();
-      reader.onload=function(e){
-        photos.push({data:e.target.result,name:file.name,date:new Date().toISOString()});
-        resolve();
-      };
-      reader.readAsDataURL(file);
-    });
+  let processPhotos=Array.from(photoFiles).map(async file=>{
+    const path=`ticket-photos/${ticketNumber}/${Date.now()}-${file.name}`;
+    const url=await uploadFileToStorage(file, path);
+    photos.push({url, name:file.name, date:new Date().toISOString(), storagePath:path});
   });
-  
+
   Promise.all(processPhotos).then(async ()=>{
     let isFaulty=jobType==='Faulty';
 
@@ -3381,7 +3394,7 @@ function renderTicketCard(t,i){
       if(h.photos && h.photos.length>0){
         historyHtml+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:5px">`;
         h.photos.forEach(p=>{
-          historyHtml+=`<img src="${p.data}" style="width:100%;height:60px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open('${p.data}','_blank')">`;
+          historyHtml+=`<img src="${p.url||p.data||''}" style="width:100%;height:60px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open(this.src,'_blank')">`;
         });
         historyHtml+=`</div>`;
       }
@@ -3400,7 +3413,7 @@ function renderTicketCard(t,i){
       if(n.photos && n.photos.length>0){
         currentNotesHtml+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:5px">`;
         n.photos.forEach(p=>{
-          currentNotesHtml+=`<img src="${p.data}" style="width:100%;height:80px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open('${p.data}','_blank')">`;
+          currentNotesHtml+=`<img src="${p.url||p.data||''}" style="width:100%;height:80px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open(this.src,'_blank')">`;
         });
         currentNotesHtml+=`</div>`;
       }
@@ -3414,7 +3427,7 @@ function renderTicketCard(t,i){
   if(t.photos && t.photos.length>0){
     ticketPhotosHtml='<div style="margin:10px 0"><strong>Attached Photos:</strong></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:10px">';
     t.photos.forEach(p=>{
-      ticketPhotosHtml+=`<img src="${p.data}" style="width:100%;height:80px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open('${p.data}','_blank')">`;
+      ticketPhotosHtml+=`<img src="${p.url||p.data||''}" style="width:100%;height:80px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open(this.src,'_blank')">`;
     });
     ticketPhotosHtml+='</div>';
   }
@@ -3509,22 +3522,13 @@ function completeJob(){
   
   let ticket=tickets[currentTicketIndex];
   
-  // Process photos
+  // Upload service photos to Firebase Storage
   let photos=[];
-  let processPhotos=Array.from(photoFiles).map(file=>{
-    return new Promise((resolve)=>{
-      let reader=new FileReader();
-      reader.onload=function(e){
-        photos.push({
-          data:e.target.result,
-          name:file.name,
-          date:new Date().toISOString(),
-          tech:currentTech
-        });
-        resolve();
-      };
-      reader.readAsDataURL(file);
-    });
+  let ticketRef=ticket.ticketNumber||`idx-${currentTicketIndex}`;
+  let processPhotos=Array.from(photoFiles).map(async file=>{
+    const path=`service-photos/${ticketRef}/${Date.now()}-${file.name}`;
+    const url=await uploadFileToStorage(file, path);
+    photos.push({url, name:file.name, date:new Date().toISOString(), tech:currentTech, storagePath:path});
   });
   
   Promise.all(processPhotos).then(async ()=>{
@@ -4006,6 +4010,75 @@ async function changeAdminPassword(){
   alert('Password changed successfully!');
 }
 
+function saveWhatsAppSettings(){
+  whatsappSettings.language=document.getElementById('whatsappLanguage').value;
+  const num=document.getElementById('whatsappBusinessNumber');
+  const key=document.getElementById('whatsappApiKey');
+  if(num) whatsappSettings.businessNumber=num.value.trim();
+  if(key) whatsappSettings.apiKey=key.value.trim();
+  save();
+}
+
+function openQuickReplyModal(){
+  document.getElementById('quickReplyName').value='';
+  document.getElementById('quickReplyMessage').value='';
+  document.getElementById('quickReplyLanguage').value='en';
+  document.getElementById('quickReplyModal').style.display='block';
+}
+
+function closeQuickReplyModal(){
+  document.getElementById('quickReplyModal').style.display='none';
+}
+
+function saveQuickReply(){
+  let name=document.getElementById('quickReplyName').value.trim();
+  let message=document.getElementById('quickReplyMessage').value.trim();
+  let language=document.getElementById('quickReplyLanguage').value;
+  if(!name||!message){
+    alert('Please enter a name and message');
+    return;
+  }
+  if(!whatsappSettings.quickReplies) whatsappSettings.quickReplies=[];
+  whatsappSettings.quickReplies.push({name,message,language});
+  save();
+  closeQuickReplyModal();
+  renderQuickReplies();
+}
+
+function renderQuickReplies(){
+  let list=document.getElementById('quickRepliesList');
+  if(!list) return;
+  if(!whatsappSettings.quickReplies||whatsappSettings.quickReplies.length===0){
+    list.innerHTML='<p style="color:var(--text-muted);font-size:13px">No quick replies saved yet.</p>';
+    return;
+  }
+  list.innerHTML=whatsappSettings.quickReplies.map((r,i)=>
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--bg-secondary);border-radius:8px;margin-bottom:6px">
+      <div><strong>${escAttr(r.name)}</strong> <span style="font-size:11px;color:var(--text-muted)">[${r.language}]</span><br>
+      <span style="font-size:12px;color:var(--text-secondary)">${escAttr(r.message.substring(0,60))}${r.message.length>60?'…':''}</span></div>
+      <button onclick="deleteQuickReply(${i})" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 8px;cursor:pointer">🗑</button>
+    </div>`
+  ).join('');
+}
+
+function deleteQuickReply(i){
+  if(!confirm('Delete this quick reply?')) return;
+  whatsappSettings.quickReplies.splice(i,1);
+  save();
+  renderQuickReplies();
+}
+
+function testWhatsAppAPI(){
+  let num=document.getElementById('whatsappBusinessNumber').value.trim();
+  let key=document.getElementById('whatsappApiKey').value.trim();
+  if(!num||!key){
+    alert('Please enter your WhatsApp Business Number and API Key first.');
+    return;
+  }
+  alert('⚠️ API testing requires a server-side proxy due to CORS restrictions.\n\nTo test: send a manual WhatsApp message to your business number and confirm it is received.\n\nSettings have been saved.');
+  saveWhatsAppSettings();
+}
+
 function exportData(){
   let exportData={
     exportDate:new Date().toISOString(),
@@ -4192,7 +4265,7 @@ function viewLiftHistory(liftId){
           if(note.photos && note.photos.length>0){
             historyHtml+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px">`;
             note.photos.forEach(photo=>{
-              historyHtml+=`<img src="${photo.data}" style="width:100%;height:80px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open('${photo.data}','_blank')">`;
+              historyHtml+=`<img src="${photo.url||photo.data||''}" style="width:100%;height:80px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open(this.src,'_blank')">`;
             });
             historyHtml+=`</div>`;
           }
@@ -4311,24 +4384,28 @@ function uploadDocument(){
     return;
   }
   
-  let reader=new FileReader();
-  reader.onload=async function(e){
+  showLoader('Uploading document...');
+  try {
+    const path=`documents/${currentDocumentLiftId}/${Date.now()}-${file.name}`;
+    const url=await uploadFileToStorage(file, path);
     liftDocuments.push({
       liftId:currentDocumentLiftId,
       title:title,
       type:type,
       fileName:file.name,
-      fileData:e.target.result,
+      fileUrl:url,
+      storagePath:path,
       uploadedDate:new Date().toISOString(),
       uploadedBy:currentAdmin||currentTech
     });
-
     await save();
-    openDocumentsModal(currentDocumentLiftId); // Refresh the modal
+    hideLoader();
+    openDocumentsModal(currentDocumentLiftId);
     alert('Document uploaded successfully!');
-  };
-
-  reader.readAsDataURL(file);
+  } catch(err) {
+    hideLoader();
+    alert('❌ Upload failed: '+err.message);
+  }
 }
 
 function viewDocument(docIndex){
@@ -4336,12 +4413,12 @@ function viewDocument(docIndex){
   let doc=docs[docIndex];
   
   if(doc){
-    // Open in new window
+    const src=doc.fileUrl||doc.fileData||'';
     let w=window.open('','_blank');
-    if(doc.fileData.startsWith('data:application/pdf')){
-      w.document.write(`<iframe src="${doc.fileData}" style="width:100%;height:100vh;border:none"></iframe>`);
+    if(src.includes('application/pdf')||doc.fileName.toLowerCase().endsWith('.pdf')){
+      w.document.write(`<iframe src="${src}" style="width:100%;height:100vh;border:none"></iframe>`);
     } else {
-      w.document.write(`<img src="${doc.fileData}" style="max-width:100%;height:auto">`);
+      w.document.write(`<img src="${src}" style="max-width:100%;height:auto">`);
     }
   }
 }
@@ -4349,11 +4426,12 @@ function viewDocument(docIndex){
 function downloadDocument(docIndex){
   let docs=liftDocuments.filter(d=>d.liftId===currentDocumentLiftId);
   let doc=docs[docIndex];
-  
+
   if(doc){
     let a=document.createElement('a');
-    a.href=doc.fileData;
+    a.href=doc.fileUrl||doc.fileData||'';
     a.download=doc.fileName;
+    a.target='_blank';
     a.click();
   }
 }
@@ -4365,11 +4443,14 @@ async function deleteDocument(docIndex){
   let doc=docs[docIndex];
 
   if(doc){
-    let globalIndex=liftDocuments.findIndex(d=>d.liftId===doc.liftId && d.fileName===doc.fileName && d.uploadDate===doc.uploadDate);
+    let globalIndex=liftDocuments.findIndex(d=>d.liftId===doc.liftId && d.fileName===doc.fileName && d.uploadedDate===doc.uploadedDate);
     if(globalIndex===-1) return;
+    if(doc.storagePath){
+      try { await storage.ref(doc.storagePath).delete(); } catch(e){ console.warn('Storage delete failed', e); }
+    }
     liftDocuments.splice(globalIndex,1);
     await save();
-    openDocumentsModal(currentDocumentLiftId); // Refresh
+    openDocumentsModal(currentDocumentLiftId);
     alert('Document deleted');
   }
 }
