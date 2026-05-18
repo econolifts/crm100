@@ -2061,6 +2061,8 @@ canvas {
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<!-- Vendor fallback (served locally) -->
+<script>if(typeof firebase==='undefined'){document.write('<script src="/vendor/firebase-app-compat.js"><\/script><script src="/vendor/firebase-firestore-compat.js"><\/script><script src="/vendor/firebase-storage-compat.js"><\/script>');}</script>
 <script>
 // ── Firebase Init ──────────────────────────────────────────────
 const firebaseConfig = {
@@ -3507,7 +3509,7 @@ function closeNoteModal(){
   currentTicketIndex=-1;
 }
 
-function completeJob(){
+async function completeJob(){
   if(currentTicketIndex===-1) return;
   
   let note=document.getElementById('serviceNote').value;
@@ -4362,7 +4364,7 @@ function closeDocumentsModal(){
   currentDocumentLiftId='';
 }
 
-function uploadDocument(){
+async function uploadDocument(){
   let title=document.getElementById('docTitle').value.trim();
   let type=document.getElementById('docType').value;
   let fileInput=document.getElementById('docFile');
