@@ -1535,6 +1535,15 @@ canvas {
 <button onclick="importCSV()" class="btn-warning">Import CSV File</button>
 </div>
 <div class="card">
+<h3>💰 Import Unpaid Accounts from CSV</h3>
+<p style="font-size:13px;color:#666;margin-bottom:8px">Upload a CSV to mark clients as having an outstanding balance. Matches by <strong>Lift ID</strong> first, then by <strong>Client Name</strong> if no Lift ID is provided.</p>
+<p style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Required columns: <code>Lift ID</code> (or <code>Client Name</code>), <code>Amount Owing</code> — Optional: <code>Note</code></p>
+<button onclick="downloadUnpaidTemplate()" class="btn-secondary" style="margin-bottom:8px;font-size:12px">⬇️ Download Sample CSV Template</button>
+<input type="file" id="unpaidCsvFileInput" accept=".csv" style="padding:8px">
+<button onclick="importUnpaidCSV()" class="btn-warning">Import Unpaid Accounts</button>
+<div id="unpaidImportResult" style="margin-top:8px;font-size:13px"></div>
+</div>
+<div class="card">
 <h3>📋 All Lifts</h3>
 <input type="text" id="liftSearch" placeholder="🔍 Search lifts by client, address, phone, or lift ID..." oninput="filterLiftTable()" style="max-width:100%;margin-bottom:10px">
 <div id="liftSearchCount" style="font-size:12px;color:var(--text-muted);margin-bottom:10px"></div>
@@ -2608,6 +2617,88 @@ function addLift(){
   }, 100);
 }
 
+function downloadUnpaidTemplate(){
+  const rows=[
+    ['Lift ID','Client Name','Amount Owing','Note'],
+    ['LIFT-001','','1500.00','Invoice #101 overdue 30 days'],
+    ['','Acme Corp','850.50','Invoice #102 unpaid'],
+    ['LIFT-003','','0','Paid in full — clear balance'],
+  ];
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='unpaid-accounts-template.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function importUnpaidCSV(){
+  const fileInput=document.getElementById('unpaidCsvFileInput');
+  const resultDiv=document.getElementById('unpaidImportResult');
+  const file=fileInput.files[0];
+
+  if(!file){
+    alert('Please select a CSV file first');
+    return;
+  }
+
+  const reader=new FileReader();
+  reader.onload=async function(e){
+    const lines=e.target.result.split('\n');
+    let updated=0, cleared=0, notFound=[], skipped=0;
+
+    for(let i=1;i<lines.length;i++){
+      const line=lines[i].trim();
+      if(!line) continue;
+
+      const cols=parseCSVLine(line);
+      // Accept: Lift ID, Client Name, Amount Owing, Note
+      const liftId=(cols[0]||'').trim();
+      const clientName=(cols[1]||'').trim();
+      const rawAmount=(cols[2]||'').trim();
+      const note=(cols[3]||'').trim();
+
+      if(!liftId && !clientName){ skipped++; continue; }
+
+      // Match by Lift ID first, then by client name
+      let idx=-1;
+      if(liftId) idx=lifts.findIndex(l=>l.lift.toLowerCase()===liftId.toLowerCase());
+      if(idx===-1 && clientName) idx=lifts.findIndex(l=>l.client.toLowerCase()===clientName.toLowerCase());
+
+      if(idx===-1){
+        notFound.push(liftId||clientName);
+        continue;
+      }
+
+      const amount=parseFloat(rawAmount.replace(/[^0-9.]/g,''));
+      const newAmount=isNaN(amount)?0:amount;
+      lifts[idx].outstanding=newAmount;
+      lifts[idx].outstandingNote=note||( newAmount>0 ? 'Imported from unpaid accounts CSV' : '' );
+
+      if(newAmount===0) cleared++; else updated++;
+    }
+
+    // Show result immediately before slow Firebase save
+    let html=`<span style="color:#10b981;font-weight:600">✅ ${updated} account(s) marked as outstanding</span>`;
+    if(cleared) html+=`<br><span style="color:#6b7280">✔ ${cleared} account(s) cleared (set to R0)</span>`;
+    if(notFound.length) html+=`<br><span style="color:#ef4444">❌ ${notFound.length} not found: ${notFound.slice(0,5).join(', ')}${notFound.length>5?'…':''}</span>`;
+    if(skipped) html+=`<br><span style="color:#6b7280">⚠ ${skipped} row(s) skipped (no ID or name)</span>`;
+    resultDiv.innerHTML=html;
+    fileInput.value='';
+
+    let msg=`Unpaid Accounts Import Complete!\n\n✅ ${updated} marked as outstanding\n✔ ${cleared} cleared to R0`;
+    if(notFound.length) msg+=`\n\n❌ ${notFound.length} not matched:\n${notFound.slice(0,10).join('\n')}${notFound.length>10?'\n…':''}`;
+    alert(msg);
+
+    await save();
+    renderAdmin();
+  };
+
+  reader.readAsText(file);
+}
+
 function importCSV(){
   let fileInput=document.getElementById('csvFileInput');
   let file=fileInput.files[0];
@@ -3097,8 +3188,9 @@ function renderLiftCards(){
     let status=dueIn<0?'⚠️ OVERDUE':(dueIn<7?'🟡 Due Soon':'✅ OK');
     let statusClass=dueIn<0?'status-overdue':'';
     let faultyBadge=l.isFaulty?'<span style="background:#ff6b6b;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;margin-left:6px">FAULTY</span>':'';
-    let outstandingBadge=l.outstanding>0?`<span style="background:#f59e0b;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;margin-left:6px">💰 R${Number(l.outstanding).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2})} OUTSTANDING</span>`:'';
-    let outstandingRow=l.outstanding>0?`<span style="color:#f59e0b;font-weight:600">💰 Outstanding: R${Number(l.outstanding).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2})}${l.outstandingNote?' — '+escAttr(l.outstandingNote):''}</span>`:'';
+    // Outstanding info is admin/office-only
+    let outstandingBadge=(currentAdmin && l.outstanding>0)?`<span style="background:#f59e0b;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;margin-left:6px">💰 R${Number(l.outstanding).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2})} OUTSTANDING</span>`:'';
+    let outstandingRow=(currentAdmin && l.outstanding>0)?`<span style="color:#f59e0b;font-weight:600">💰 Outstanding: R${Number(l.outstanding).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2})}${l.outstandingNote?' — '+escAttr(l.outstandingNote):''}</span>`:'';
     cards.push(`<div class="lift-card-item ${statusClass}">
       <div class="lift-card-header">
         <strong>${escAttr(l.client)} — ${escAttr(l.lift)} ${faultyBadge}${outstandingBadge}</strong>
@@ -3479,10 +3571,10 @@ function renderTicketCard(t,i){
   let inProgressBadge=t.status==='In Progress'?'<div style="background:#ff9800;color:#fff;padding:5px;border-radius:4px;margin:5px 0;font-weight:bold">🔄 IN PROGRESS</div>':'';
   let faultyBadge=t.isFaulty?'<div style="background:#ff6b6b;color:#fff;padding:5px;border-radius:4px;margin:5px 0">⚠️ MARKED AS FAULTY</div>':'';
   let liftData = lifts.find(l => l.lift === t.lift.lift);
-  let outstandingWarning = (liftData && liftData.outstanding > 0)
+  // Outstanding balance is admin/office-only — never shown to technicians
+  let outstandingWarning = (currentAdmin && liftData && liftData.outstanding > 0)
     ? `<div style="background:#f59e0b22;border:1px solid #f59e0b;border-radius:8px;padding:8px 12px;margin:8px 0;color:#f59e0b;font-weight:600;font-size:13px">
          💰 Outstanding balance: R${Number(liftData.outstanding).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2})}${liftData.outstandingNote?' — '+escAttr(liftData.outstandingNote):''}
-         <br><small style="font-weight:400;color:var(--text-muted)">Please inform the client and collect payment if possible.</small>
        </div>`
     : '';
   let overdue=t.scheduledDate<new Date().toISOString().split('T')[0]?'<div style="color:red">⚠️ OVERDUE</div>':'';
