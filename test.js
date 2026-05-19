@@ -86,8 +86,9 @@ function log(status, name, detail = '') {
   );
   if (hasLiftForm) {
     log('PASS', 'Add Lift form fields present');
-    await page.fill('#client', 'Test Client');
-    await page.fill('#lift', 'TEST-001');
+    const uid = Date.now();
+    await page.fill('#client', `Test Client ${uid}`);
+    await page.fill('#lift', `TEST-${uid}`);
     await page.fill('#clientAddress', '123 Test Street, Cape Town');
     const liftsBefore = await page.evaluate(() => lifts.length);
     await page.evaluate(() => addLift());
