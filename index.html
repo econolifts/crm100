@@ -1524,6 +1524,8 @@ canvas {
 <option value="6">6 Monthly</option>
 <option value="12">Yearly</option>
 </select>
+<input type="number" id="outstandingAmount" placeholder="Outstanding Amount (R) — leave 0 if none" min="0" step="0.01">
+<input type="text" id="outstandingNote" placeholder="Outstanding amount details (e.g. Invoice #123 unpaid)">
 <button onclick="addLift()" class="btn-success">Add Lift</button>
 </div>
 <div class="card">
@@ -1988,6 +1990,8 @@ canvas {
 <option value="6">6 Monthly</option>
 <option value="12">Yearly</option>
 </select>
+<input type="number" id="editOutstandingAmount" placeholder="Outstanding Amount (R)" min="0" step="0.01">
+<input type="text" id="editOutstandingNote" placeholder="Outstanding amount details">
 <button onclick="updateLift()" class="btn-success">Update Lift</button>
 <button onclick="closeEditLiftModal()" class="btn-secondary">Cancel</button>
 </div>
@@ -2563,7 +2567,19 @@ function addLift(){
     alert('Please enter a valid service frequency (in months)');
     return;
   }
-  
+
+  // Reject duplicate lift ID
+  if(lifts.find(l=>l.lift.toLowerCase()===lift.toLowerCase())){
+    alert(`❌ Lift ID "${lift}" already exists in the system.\n\nPlease use a unique Lift ID.`);
+    return;
+  }
+  // Reject duplicate client name
+  if(lifts.find(l=>l.client.toLowerCase()===client.toLowerCase())){
+    if(!confirm(`⚠️ Client "${client}" already has a lift registered.\n\nAdd another lift for this client anyway?`)){
+      return;
+    }
+  }
+
   showLoader('Adding lift...');
   
   setTimeout(async () => {
@@ -2574,18 +2590,21 @@ function addLift(){
       lift,
       frequency,
       lastService:Date.now(),
-      isFaulty:false
+      isFaulty:false,
+      outstanding: parseFloat(document.getElementById('outstandingAmount').value)||0,
+      outstandingNote: document.getElementById('outstandingNote').value.trim(),
     });
 
+    document.getElementById('client').value='';
+    document.getElementById('clientAddress').value='';
+    document.getElementById('clientPhone').value='';
+    document.getElementById('lift').value='';
+    document.getElementById('outstandingAmount').value='';
+    document.getElementById('outstandingNote').value='';
     await save();
     renderAdmin();
     hideLoader();
-
-    document.getElementById('client').value='';
-  document.getElementById('clientAddress').value='';
-  document.getElementById('clientPhone').value='';
-  document.getElementById('lift').value='';
-  alert('Lift added successfully!');
+    alert('Lift added successfully!');
   }, 100);
 }
 
@@ -2604,6 +2623,8 @@ function importCSV(){
     let lines=text.split('\n');
     let imported=0;
     let skipped=0;
+    let duplicateLifts=[];
+    let duplicateClients=[];
 
     // Skip header row (line 0)
     for(let i=1;i<lines.length;i++){
@@ -2627,9 +2648,15 @@ function importCSV(){
         continue;
       }
 
-      // Check if lift already exists
-      let exists=lifts.find(l=>l.lift===liftId);
-      if(exists){
+      // Reject duplicate lift ID (case-insensitive)
+      if(lifts.find(l=>l.lift.toLowerCase()===liftId.toLowerCase())){
+        duplicateLifts.push(liftId);
+        skipped++;
+        continue;
+      }
+      // Reject duplicate client name (case-insensitive)
+      if(lifts.find(l=>l.client.toLowerCase()===client.toLowerCase())){
+        duplicateClients.push(client);
         skipped++;
         continue;
       }
@@ -2642,6 +2669,8 @@ function importCSV(){
           freq=parsed;
         }
       }
+      let outstanding = cols[5] ? parseFloat(cols[5].replace(/[^0-9.]/g,'')) || 0 : 0;
+      let outstandingNote = cols[6] ? cols[6].trim() : '';
 
       lifts.push({
         client:client,
@@ -2650,7 +2679,9 @@ function importCSV(){
         lift:liftId,
         frequency:freq,
         lastService:Date.now(),
-        isFaulty:false
+        isFaulty:false,
+        outstanding: outstanding,
+        outstandingNote: outstandingNote,
       });
       imported++;
     }
@@ -2658,7 +2689,10 @@ function importCSV(){
     await save();
     renderAdmin();
     fileInput.value=''; // Clear file input
-    alert(`CSV Import Complete!\n\nImported: ${imported} lifts\nSkipped: ${skipped} (duplicates or invalid)`);
+    let msg=`CSV Import Complete!\n\nImported: ${imported} lifts\nSkipped: ${skipped}`;
+    if(duplicateLifts.length) msg+=`\n\n❌ Duplicate Lift IDs skipped (${duplicateLifts.length}):\n${duplicateLifts.slice(0,10).join(', ')}${duplicateLifts.length>10?'…':''}`;
+    if(duplicateClients.length) msg+=`\n\n⚠️ Duplicate Client Names skipped (${duplicateClients.length}):\n${duplicateClients.slice(0,10).join(', ')}${duplicateClients.length>10?'…':''}`;
+    alert(msg);
   };
 
   reader.readAsText(file);
@@ -2703,6 +2737,8 @@ function openEditLiftModal(i){
   document.getElementById('editLiftPhone').value=l.phone;
   document.getElementById('editLiftId').value=l.lift;
   document.getElementById('editLiftFrequency').value=l.frequency;
+  document.getElementById('editOutstandingAmount').value=l.outstanding||0;
+  document.getElementById('editOutstandingNote').value=l.outstandingNote||'';
   document.getElementById('editLiftModal').style.display='block';
 }
 
@@ -2723,6 +2759,8 @@ async function updateLift(){
   lifts[editingLiftIndex].phone=document.getElementById('editLiftPhone').value;
   lifts[editingLiftIndex].lift=document.getElementById('editLiftId').value;
   lifts[editingLiftIndex].frequency=newFreq;
+  lifts[editingLiftIndex].outstanding=parseFloat(document.getElementById('editOutstandingAmount').value)||0;
+  lifts[editingLiftIndex].outstandingNote=document.getElementById('editOutstandingNote').value.trim();
   await save();
   renderAdmin();
   closeEditLiftModal();
@@ -3059,15 +3097,18 @@ function renderLiftCards(){
     let status=dueIn<0?'⚠️ OVERDUE':(dueIn<7?'🟡 Due Soon':'✅ OK');
     let statusClass=dueIn<0?'status-overdue':'';
     let faultyBadge=l.isFaulty?'<span style="background:#ff6b6b;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;margin-left:6px">FAULTY</span>':'';
+    let outstandingBadge=l.outstanding>0?`<span style="background:#f59e0b;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;margin-left:6px">💰 R${Number(l.outstanding).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2})} OUTSTANDING</span>`:'';
+    let outstandingRow=l.outstanding>0?`<span style="color:#f59e0b;font-weight:600">💰 Outstanding: R${Number(l.outstanding).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2})}${l.outstandingNote?' — '+escAttr(l.outstandingNote):''}</span>`:'';
     cards.push(`<div class="lift-card-item ${statusClass}">
       <div class="lift-card-header">
-        <strong>${escAttr(l.client)} — ${escAttr(l.lift)} ${faultyBadge}</strong>
+        <strong>${escAttr(l.client)} — ${escAttr(l.lift)} ${faultyBadge}${outstandingBadge}</strong>
         <span style="font-size:13px;font-weight:600">${status} (${dueIn}d)</span>
       </div>
       <div class="lift-card-details">
         <span>📍 ${escAttr(l.address)}</span>
         <span>📞 ${escAttr(l.phone)}</span>
         <span>🔄 Every ${l.frequency} month(s)</span>
+        ${outstandingRow?`<span style="color:#f59e0b;font-weight:600">💰 Outstanding: R${Number(l.outstanding).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2})}${l.outstandingNote?' — '+escAttr(l.outstandingNote):''}</span>`:''}
       </div>
       <div class="lift-card-actions">
         <button onclick="viewLiftHistory('${escAttr(l.lift)}')" class="btn-small" style="background:#17a2b8;color:#fff">📚 History</button>
@@ -3437,6 +3478,13 @@ function renderTicketCard(t,i){
   
   let inProgressBadge=t.status==='In Progress'?'<div style="background:#ff9800;color:#fff;padding:5px;border-radius:4px;margin:5px 0;font-weight:bold">🔄 IN PROGRESS</div>':'';
   let faultyBadge=t.isFaulty?'<div style="background:#ff6b6b;color:#fff;padding:5px;border-radius:4px;margin:5px 0">⚠️ MARKED AS FAULTY</div>':'';
+  let liftData = lifts.find(l => l.lift === t.lift.lift);
+  let outstandingWarning = (liftData && liftData.outstanding > 0)
+    ? `<div style="background:#f59e0b22;border:1px solid #f59e0b;border-radius:8px;padding:8px 12px;margin:8px 0;color:#f59e0b;font-weight:600;font-size:13px">
+         💰 Outstanding balance: R${Number(liftData.outstanding).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2})}${liftData.outstandingNote?' — '+escAttr(liftData.outstandingNote):''}
+         <br><small style="font-weight:400;color:var(--text-muted)">Please inform the client and collect payment if possible.</small>
+       </div>`
+    : '';
   let overdue=t.scheduledDate<new Date().toISOString().split('T')[0]?'<div style="color:red">⚠️ OVERDUE</div>':'';
   
   let jobType=t.jobType||'Service';
@@ -3479,6 +3527,7 @@ function renderTicketCard(t,i){
       ${priorityBadge}
       ${inProgressBadge}
       ${faultyBadge}
+      ${outstandingWarning}
       ${overdue}
       <div class="address-text">📍 ${t.lift.address}</div>
       <button onclick="openMap('${t.lift.address}')" class="btn-small map-link">📍 Open in Google Maps</button>
