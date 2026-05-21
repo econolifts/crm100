@@ -2134,14 +2134,16 @@ function startRealtimeSync() {
     if (d.liftDocuments)   liftDocuments   = d.liftDocuments;
     if (d.whatsappSettings) whatsappSettings = d.whatsappSettings;
     if (d.techLocations)   techLocations   = d.techLocations;
-    // Re-render whatever view is active
-    if (currentAdmin) {
-      renderAdmin();
-      checkReminders();
-      checkFaulty();
-      checkIncomplete();
-    }
-    if (currentTech) renderTech();
+    // Debounce re-renders — Firebase can fire onSnapshot many times rapidly
+    debouncedRender(() => {
+      if (currentAdmin) {
+        renderAdmin();
+        checkReminders();
+        checkFaulty();
+        checkIncomplete();
+      }
+      if (currentTech) renderTech();
+    }, 300);
   }, (err) => {
     console.error('Realtime sync error:', err);
   });
@@ -2304,7 +2306,7 @@ function login(){
         loginBox.style.display='none';
         adminApp.style.display='block';
         document.getElementById('adminLoggedInName').innerText=admin.name||admin.username;
-        renderAdmin();
+        scheduleRenderAdmin();
         checkReminders();
         checkFaulty();
         checkIncomplete();
@@ -2611,7 +2613,7 @@ function addLift(){
     document.getElementById('outstandingAmount').value='';
     document.getElementById('outstandingNote').value='';
     await save();
-    renderAdmin();
+    scheduleRenderAdmin();
     hideLoader();
     alert('Lift added successfully!');
   }, 100);
@@ -2693,7 +2695,7 @@ async function importUnpaidCSV(){
     alert(msg);
 
     await save();
-    renderAdmin();
+    scheduleRenderAdmin();
   };
 
   reader.readAsText(file);
@@ -2721,6 +2723,43 @@ function importCSV(){
 
     if(lines.length<2){
       alert('CSV file appears empty or has no data rows.');
+      return;
+    }
+
+    // ── Pastel / Sage "Customer Listing Report" detection ──
+    const isPastelReport=
+      lines[0].trim().toLowerCase().includes('customer listing report')||
+      (lines.length>3&&parseCSVLine(lines[3]).some(c=>c.trim().toLowerCase()==='name'&&
+        parseCSVLine(lines[3]).some(c2=>c2.trim().toLowerCase().includes('telephone'))));
+    if(isPastelReport){
+      const customers=parsePastelCustomers(lines);
+      if(!customers.length){
+        alert('No active customer records found in the Pastel report.');
+        return;
+      }
+      let imported=0,updated=0;
+      const usedIds=new Set(lifts.map(l=>l.lift.toLowerCase()));
+      for(const cust of customers){
+        const existingIdx=lifts.findIndex(l=>l.client.toLowerCase()===cust.name.toLowerCase());
+        if(existingIdx>=0){
+          // Update outstanding balance; fill phone/address if blank
+          lifts[existingIdx].outstanding=cust.balance;
+          if(!lifts[existingIdx].phone&&cust.phone) lifts[existingIdx].phone=cust.phone;
+          if(!lifts[existingIdx].address&&cust.address) lifts[existingIdx].address=cust.address;
+          updated++;
+        } else {
+          const liftId=generateLiftId(cust.name,usedIds);
+          lifts.push({client:cust.name,address:cust.address,phone:cust.phone,lift:liftId,
+            frequency:6,lastService:Date.now(),isFaulty:false,outstanding:cust.balance,
+            outstandingNote:cust.balance>0?'Imported from accounting':''});
+          usedIds.add(liftId.toLowerCase());
+          imported++;
+        }
+      }
+      renderAdmin();
+      fileInput.value='';
+      await save();
+      alert(`Pastel Import Complete!\n\n✅ New clients added: ${imported}\n🔄 Existing clients updated: ${updated}\n📋 Total processed: ${customers.length}\n\n💡 Tip: Edit each lift to set the correct Lift ID and service frequency.`);
       return;
     }
 
@@ -2822,10 +2861,10 @@ function parseCSVLine(line){
   let cols=[];
   let current='';
   let inQuotes=false;
-  
+
   for(let i=0;i<line.length;i++){
     let char=line[i];
-    
+
     if(char==='"'){
       inQuotes=!inQuotes;
     } else if(char===',' && !inQuotes){
@@ -2836,8 +2875,56 @@ function parseCSVLine(line){
     }
   }
   cols.push(current);
-  
+
   return cols;
+}
+
+// Parse a Pastel/Sage "Customer Listing Report" (multi-row-per-customer format)
+function parsePastelCustomers(lines){
+  let customers=[];
+  let i=0;
+  // Advance past the report title and company header rows to the column header row
+  while(i<lines.length){
+    let cols=parseCSVLine(lines[i]);
+    if(cols[0]&&cols[0].trim().toLowerCase()==='name'&&cols.length>=6){i++;break;}
+    i++;
+  }
+  while(i<lines.length){
+    if(!lines[i].trim()){i++;continue;}
+    let cols=parseCSVLine(lines[i]);
+    let name=(cols[0]||'').trim();
+    let isActive=(cols[3]||'').trim()==='Yes';
+    if(!name||!isActive){i++;continue;}
+    let telephone=(cols[5]||'').trim();
+    let balance=parseFloat((cols[6]||'0').replace(/[^0-9.\-]/g,''))||0;
+    i++;
+    let addrParts=[],mobile='';
+    while(i<lines.length){
+      let bc=parseCSVLine(lines[i]);
+      let label=(bc[2]||'').trim();
+      let col0=(bc[0]||'').trim();
+      if(label==='Mobile:') mobile=(bc[4]||'').trim();
+      if(label.includes('Default Price List')){i++;break;}
+      if(col0&&col0!=='Delivery Address:'&&!/^\d{4,5}$/.test(col0))
+        addrParts.push(col0);
+      i++;
+    }
+    customers.push({name,phone:telephone||mobile,address:addrParts.join(', '),balance});
+  }
+  return customers;
+}
+
+// Generate a short Lift ID from a client name; usedIds is a Set (lowercase) of taken IDs
+function generateLiftId(name,usedIds){
+  let base=name
+    .replace(/\(Pty\)\s*Ltd\.?/gi,'').replace(/\bCC\b\.?/gi,'')
+    .replace(/\bLtd\.?\b/gi,'').replace(/\(.*?\)/g,'')
+    .trim().toUpperCase().replace(/[^A-Z0-9\s]/g,'')
+    .split(/\s+/).filter(Boolean).slice(0,2).join('-').substring(0,12);
+  if(!base) base='CLIENT';
+  let id=base,n=2;
+  while(usedIds.has(id.toLowerCase())) id=base+'-'+n++;
+  return id;
 }
 
 
@@ -2845,7 +2932,7 @@ async function deleteLift(i){
   if(confirm('Delete this lift?')){
     lifts.splice(i,1);
     await save();
-    renderAdmin();
+    scheduleRenderAdmin();
   }
 }
 
@@ -2882,7 +2969,7 @@ async function updateLift(){
   lifts[editingLiftIndex].outstanding=parseFloat(document.getElementById('editOutstandingAmount').value)||0;
   lifts[editingLiftIndex].outstandingNote=document.getElementById('editOutstandingNote').value.trim();
   await save();
-  renderAdmin();
+  scheduleRenderAdmin();
   closeEditLiftModal();
   alert('Lift updated!');
 }
@@ -2937,7 +3024,7 @@ function addTech(){
     });
 
     await save();
-    renderAdmin();
+    scheduleRenderAdmin();
 
     // Clear form
     document.getElementById('techName').value='';
@@ -2958,7 +3045,7 @@ async function deleteTech(i){
   if(confirm('Delete this technician?')){
     techs.splice(i,1);
     await save();
-    renderAdmin();
+    scheduleRenderAdmin();
   }
 }
 
@@ -3010,7 +3097,7 @@ function createTicket(){
     });
 
     await save();
-    renderAdmin();
+    scheduleRenderAdmin();
 
     // Update faults tab if this is a fault ticket
     if(isFaulty && document.getElementById('faults-tab')){
@@ -3030,7 +3117,7 @@ async function deleteTicket(i){
   if(confirm('Delete this ticket?')){
     tickets.splice(i,1);
     await save();
-    renderAdmin();
+    scheduleRenderAdmin();
     renderTech();
   }
 }
@@ -3067,7 +3154,7 @@ async function updateTicket(){
   tickets[editingTicketIndex].note=document.getElementById('editTicketNote').value;
   tickets[editingTicketIndex].status=document.getElementById('editTicketStatus').value;
   await save();
-  renderAdmin();
+  scheduleRenderAdmin();
   renderTech();
   closeEditTicketModal();
   alert('Ticket updated!');
@@ -3154,7 +3241,7 @@ async function submitFaultReport(){
   });
 
   await save();
-  renderAdmin();
+  scheduleRenderAdmin();
 
   // Update tech view so the new fault ticket appears immediately
   if(currentTech) renderTech();
@@ -3200,18 +3287,34 @@ function debouncedRender(func, delay = 100) {
   renderTimeout = setTimeout(func, delay);
 }
 
+// Debounced wrapper — collapses rapid sequential renderAdmin() calls into one
+let _renderAdminTimer;
+const _renderAdminFn = renderAdmin;  // captured after definition below — see bottom of script
+function scheduleRenderAdmin(){
+  clearTimeout(_renderAdminTimer);
+  _renderAdminTimer = setTimeout(renderAdmin, 150);
+}
+
 function escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-function renderLiftCards(){
+let _liftCardPage = 0;
+const LIFTS_PER_PAGE = 50;
+
+function renderLiftCards(resetPage){
+  if(resetPage) _liftCardPage = 0;
   let container=document.getElementById('liftCardsList');
   if(!container) return;
   let search=(document.getElementById('liftSearch')?.value||'').toLowerCase();
-  let cards=[];
-  let total=0;
+  let filtered=[];
   lifts.forEach((l,i)=>{
     let searchStr=(l.client+' '+l.address+' '+l.phone+' '+l.lift).toLowerCase();
-    if(search && !searchStr.includes(search)) return;
-    total++;
+    if(!search || searchStr.includes(search)) filtered.push({l,i});
+  });
+  let total=filtered.length;
+  let pageEnd=(_liftCardPage+1)*LIFTS_PER_PAGE;
+  let visible=filtered.slice(0, pageEnd);
+  let cards=[];
+  visible.forEach(({l,i})=>{
     let daysSince=Math.floor((Date.now()-l.lastService)/(1000*60*60*24));
     let dueIn=l.frequency*30-daysSince;
     let status=dueIn<0?'⚠️ OVERDUE':(dueIn<7?'🟡 Due Soon':'✅ OK');
@@ -3242,13 +3345,30 @@ function renderLiftCards(){
       </div>
     </div>`);
   });
-  container.innerHTML=cards.length?cards.join(''):'<p style="color:var(--text-muted);text-align:center;padding:20px">No lifts found</p>';
+  if(cards.length){
+    let html=cards.join('');
+    if(pageEnd < total){
+      html+=`<div style="text-align:center;padding:16px">
+        <button onclick="_liftCardPage++;renderLiftCards()" class="btn-secondary" style="width:auto;padding:10px 24px">
+          Load More (${total - pageEnd} remaining)
+        </button>
+      </div>`;
+    }
+    container.innerHTML=html;
+  } else {
+    container.innerHTML='<p style="color:var(--text-muted);text-align:center;padding:20px">No lifts found</p>';
+  }
   let countEl=document.getElementById('liftSearchCount');
-  if(countEl) countEl.textContent=search?`Showing ${total} of ${lifts.length} lifts`:`${lifts.length} lifts total`;
+  if(countEl){
+    let showing=Math.min(pageEnd, total);
+    countEl.textContent=search
+      ? `Showing ${showing} of ${total} matching lifts (${lifts.length} total)`
+      : `Showing ${showing} of ${total} lifts`;
+  }
 }
 
 function filterLiftTable(){
-  renderLiftCards();
+  renderLiftCards(true); // reset to page 1 on new search
 }
 
 function filterTicketLiftDropdown(){
@@ -3300,48 +3420,49 @@ function filterTicketTable(){
 }
 
 function renderAdmin(){
+  // Only render the active tab's content — skip hidden tabs entirely
+  const activeTab = document.querySelector('#adminApp .tab-content.active');
+  const activeId  = activeTab ? activeTab.id : '';
 
-  // Lifts Cards - responsive card layout instead of wide table
-  renderLiftCards();
-  
-  // Techs Table
-  let techTable=document.getElementById('techTable');
-  if(techTable){
-    let techRows = [];
-    techs.forEach((t,i)=>{
-      let username=t.username||'N/A';
-      techRows.push(`<tr>
-          <td>${escAttr(t.name)}</td>
-          <td>${escAttr(username)}</td>
-          <td>********</td>
-          <td><button onclick="deleteTech(${i})" class="btn-small btn-danger">Delete</button></td>
-        </tr>`);
-    });
-    techTable.innerHTML = techRows.join('');
-  }
-  
-  // Admins Table
-  let adminTable=document.getElementById('adminTable');
-  if(adminTable){
-    let adminRows = [];
-    admins.forEach((a,i)=>{
-      adminRows.push(`<tr>
-          <td>${escAttr(a.name||'N/A')}</td>
-          <td>${escAttr(a.username)}</td>
-          <td>********</td>
-          <td><button onclick="deleteAdmin(${i})" class="btn-small btn-danger" ${admins.length===1?'disabled':''}>Delete</button></td>
-        </tr>`);
-    });
-    adminTable.innerHTML = adminRows.join('');
-  }
-  
-  // Admin Ticket Table - render with search filter support
-  filterTicketTable();
+  // Lifts cards — only when lifts tab is visible
+  if(!activeId || activeId === 'lifts-tab') renderLiftCards();
 
+  // Techs + Admins tables — only when techs tab is visible
+  if(!activeId || activeId === 'techs-tab'){
+    let techTable=document.getElementById('techTable');
+    if(techTable){
+      let rows=[];
+      techs.forEach((t,i)=>{
+        rows.push(`<tr><td>${escAttr(t.name)}</td><td>${escAttr(t.username||'N/A')}</td><td>********</td><td><button onclick="deleteTech(${i})" class="btn-small btn-danger">Delete</button></td></tr>`);
+      });
+      techTable.innerHTML=rows.join('');
+    }
+    let adminTable=document.getElementById('adminTable');
+    if(adminTable){
+      let rows=[];
+      admins.forEach((a,i)=>{
+        rows.push(`<tr><td>${escAttr(a.name||'N/A')}</td><td>${escAttr(a.username)}</td><td>********</td><td><button onclick="deleteAdmin(${i})" class="btn-small btn-danger" ${admins.length===1?'disabled':''}>Delete</button></td></tr>`);
+      });
+      adminTable.innerHTML=rows.join('');
+    }
+  }
+
+  // Tickets table — only when tickets tab is visible
+  if(!activeId || activeId === 'tickets-tab') filterTicketTable();
+
+  // Dropdowns need to stay in sync for ticket creation form
   populateTicketDropdowns('ticketLift','ticketTech');
+
+  // Badge counts (cheap — just counts, no DOM list rebuild)
   checkReminders();
   checkFaulty();
   checkIncomplete();
+
+  // Active-tab specific render (merged from monkey-patch — no double-render)
+  if(activeId === 'dashboard-tab') renderDashboard();
+  else if(activeId === 'kanban-tab') renderKanban();
+  else if(activeId === 'calendar-tab') renderCalendar();
+  else if(activeId === 'faults-tab') renderFaults();
 }
 
 function checkReminders(){
@@ -4125,7 +4246,7 @@ async function addAdmin(){
 
   admins.push({name,username,pass});
   await save();
-  renderAdmin();
+  scheduleRenderAdmin();
   document.getElementById('adminName').value='';
   document.getElementById('adminUsername').value='';
   document.getElementById('adminPass').value='';
@@ -4140,7 +4261,7 @@ async function deleteAdmin(i){
   if(confirm('Delete this admin?')){
     admins.splice(i,1);
     await save();
-    renderAdmin();
+    scheduleRenderAdmin();
   }
 }
 
@@ -5033,7 +5154,7 @@ async function drop(ev,newStatus){
     }
     await save();
     updateKanbanBoard();
-    renderAdmin();
+    scheduleRenderAdmin();
   }
 }
 
@@ -5141,19 +5262,7 @@ function changeMonth(direction){
 }
 
 // Update main render function
-let originalRenderAdmin=renderAdmin;
-renderAdmin=function(){
-  originalRenderAdmin();
-  if(document.getElementById('dashboard-tab').classList.contains('active')){
-    renderDashboard();
-  } else if(document.getElementById('kanban-tab').classList.contains('active')){
-    renderKanban();
-  } else if(document.getElementById('calendar-tab').classList.contains('active')){
-    renderCalendar();
-  } else if(document.getElementById('faults-tab').classList.contains('active')){
-    renderFaults();
-  }
-};
+// renderAdmin monkey-patch merged into renderAdmin() directly — see definition above
 
 // Add search functionality for Kanban
 if(document.getElementById('kanban-search')){
@@ -5417,7 +5526,7 @@ async function markFaultInProgress(ticketIdx){
   tickets[ticketIdx].status='In Progress';
   await save();
   renderFaults();
-  renderAdmin();
+  scheduleRenderAdmin();
   alert('Fault marked as In Progress');
 }
 
@@ -5437,7 +5546,7 @@ async function resolveFault(ticketIdx){
 
   await save();
   renderFaults();
-  renderAdmin();
+  scheduleRenderAdmin();
   alert('✅ Fault resolved successfully!');
 }
 
