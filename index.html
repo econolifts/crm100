@@ -1530,7 +1530,7 @@ canvas {
 </div>
 <div class="card">
 <h3>📁 Import Lifts from CSV</h3>
-<p style="font-size:13px;color:#666">Upload a CSV file with columns: Client, Address, Phone, Lift ID, Frequency</p>
+<p style="font-size:13px;color:#666">Upload a CSV file. First row must be a header — column names are detected automatically (any order). Required: <strong>Client</strong> and/or <strong>Lift ID</strong>. Optional: Address, Phone, Frequency, Outstanding Amount, Note.</p>
 <input type="file" id="csvFileInput" accept=".csv" style="padding:8px">
 <button onclick="importCSV()" class="btn-warning">Import CSV File</button>
 </div>
@@ -2711,33 +2711,66 @@ function importCSV(){
   let reader=new FileReader();
   reader.onload=async function(e){
     let text=e.target.result;
-    let lines=text.split('\n');
+    // Support both LF and CRLF line endings
+    let lines=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
     let imported=0;
     let skipped=0;
     let duplicateLifts=[];
     let duplicateClients=[];
+    let badRows=[];
 
-    // Skip header row (line 0)
-    for(let i=1;i<lines.length;i++){
+    if(lines.length<2){
+      alert('CSV file appears empty or has no data rows.');
+      return;
+    }
+
+    // Parse header row to find column positions (case-insensitive, flexible names)
+    let headerCols=parseCSVLine(lines[0]).map(h=>h.trim().toLowerCase());
+    function colIdx(...names){
+      for(let n of names){
+        let i=headerCols.findIndex(h=>h.includes(n));
+        if(i!==-1) return i;
+      }
+      return -1;
+    }
+    // Map known column names — fall back to positional if no header recognised
+    let hasHeader=headerCols.some(h=>['client','lift','name','address','phone','frequency','id'].some(k=>h.includes(k)));
+    let iClient    = hasHeader ? colIdx('client','name')                    : 0;
+    let iAddress   = hasHeader ? colIdx('address','street','location')      : 1;
+    let iPhone     = hasHeader ? colIdx('phone','tel','mobile','contact')   : 2;
+    let iLift      = hasHeader ? colIdx('lift id','liftid','lift','unit')   : 3;
+    let iFrequency = hasHeader ? colIdx('frequency','freq','service')       : 4;
+    let iOutstanding = hasHeader ? colIdx('outstanding','amount','owing','balance') : 5;
+    let iNote      = hasHeader ? colIdx('note','comment','remark','detail') : 6;
+
+    // Must have at least client or lift column
+    if(iClient===-1 && iLift===-1){
+      alert('Could not find a Client or Lift ID column in your CSV.\n\nPlease make sure the first row contains column headers like:\nClient, Lift ID, Address, Phone, Frequency');
+      return;
+    }
+
+    let startRow = hasHeader ? 1 : 0;
+    for(let i=startRow;i<lines.length;i++){
       let line=lines[i].trim();
       if(!line) continue;
 
-      // Parse CSV line (handle commas in quotes)
       let cols=parseCSVLine(line);
 
-      if(cols.length<5) continue;
+      let client   = (iClient>=0   && cols[iClient])   ? cols[iClient].trim()   : '';
+      let address  = (iAddress>=0  && cols[iAddress])  ? cols[iAddress].trim()  : '';
+      let phone    = (iPhone>=0    && cols[iPhone])    ? cols[iPhone].trim()    : '';
+      let liftId   = (iLift>=0     && cols[iLift])     ? cols[iLift].trim()     : '';
+      let freqRaw  = (iFrequency>=0 && cols[iFrequency]) ? cols[iFrequency].trim() : '';
 
-      let client=cols[0].trim();
-      let address=cols[1].trim();
-      let phone=cols[2].trim();
-      let liftId=cols[3].trim();
-      let frequency=cols[4].trim();
-
-      // Skip if client or lift ID is empty
-      if(!client||!liftId){
+      // Need at least one of client or lift ID
+      if(!client && !liftId){
+        badRows.push(`Row ${i+1}`);
         skipped++;
         continue;
       }
+      // Use whichever identifier is available as the other if missing
+      if(!client) client=liftId;
+      if(!liftId) liftId=client;
 
       // Reject duplicate lift ID (case-insensitive)
       if(lifts.find(l=>l.lift.toLowerCase()===liftId.toLowerCase())){
@@ -2752,37 +2785,33 @@ function importCSV(){
         continue;
       }
 
-      // Default frequency to 6 months if not specified or invalid
+      // Frequency: accept any positive integer, default 6
       let freq=6;
-      if(frequency){
-        let parsed=parseInt(frequency);
-        if(!isNaN(parsed) && [1,3,6,12].includes(parsed)){
-          freq=parsed;
-        }
+      if(freqRaw){
+        let parsed=parseInt(freqRaw);
+        if(!isNaN(parsed) && parsed>0) freq=parsed;
       }
-      let outstanding = cols[5] ? parseFloat(cols[5].replace(/[^0-9.]/g,'')) || 0 : 0;
-      let outstandingNote = cols[6] ? cols[6].trim() : '';
+
+      let outstanding = (iOutstanding>=0 && cols[iOutstanding])
+        ? parseFloat(cols[iOutstanding].replace(/[^0-9.]/g,'')) || 0 : 0;
+      let outstandingNote = (iNote>=0 && cols[iNote]) ? cols[iNote].trim() : '';
 
       lifts.push({
-        client:client,
-        address:address,
-        phone:phone,
-        lift:liftId,
-        frequency:freq,
-        lastService:Date.now(),
-        isFaulty:false,
-        outstanding: outstanding,
-        outstandingNote: outstandingNote,
+        client,address,phone,lift:liftId,frequency:freq,
+        lastService:Date.now(),isFaulty:false,outstanding,outstandingNote
       });
       imported++;
     }
 
-    await save();
-    renderAdmin();
-    fileInput.value=''; // Clear file input
-    let msg=`CSV Import Complete!\n\nImported: ${imported} lifts\nSkipped: ${skipped}`;
-    if(duplicateLifts.length) msg+=`\n\n❌ Duplicate Lift IDs skipped (${duplicateLifts.length}):\n${duplicateLifts.slice(0,10).join(', ')}${duplicateLifts.length>10?'…':''}`;
-    if(duplicateClients.length) msg+=`\n\n⚠️ Duplicate Client Names skipped (${duplicateClients.length}):\n${duplicateClients.slice(0,10).join(', ')}${duplicateClients.length>10?'…':''}`;
+    renderAdmin();        // show results immediately
+    fileInput.value='';
+    await save();         // sync to cloud in background
+
+    let msg=`CSV Import Complete!\n\nImported: ${imported} lift(s)\nSkipped: ${skipped}`;
+    if(duplicateLifts.length) msg+=`\n\n❌ Duplicate Lift IDs (${duplicateLifts.length}):\n${duplicateLifts.slice(0,10).join(', ')}${duplicateLifts.length>10?'…':''}`;
+    if(duplicateClients.length) msg+=`\n\n⚠️ Duplicate Client Names (${duplicateClients.length}):\n${duplicateClients.slice(0,10).join(', ')}${duplicateClients.length>10?'…':''}`;
+    if(badRows.length) msg+=`\n\n⚠️ ${badRows.length} row(s) had no Client or Lift ID and were skipped`;
+    if(imported===0 && skipped===0) msg+='\n\n💡 Tip: Make sure your CSV has a header row with column names like:\nClient, Lift ID, Address, Phone, Frequency';
     alert(msg);
   };
 
