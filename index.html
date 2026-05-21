@@ -2726,6 +2726,43 @@ function importCSV(){
       return;
     }
 
+    // ── Pastel / Sage "Customer Listing Report" detection ──
+    const isPastelReport=
+      lines[0].trim().toLowerCase().includes('customer listing report')||
+      (lines.length>3&&parseCSVLine(lines[3]).some(c=>c.trim().toLowerCase()==='name'&&
+        parseCSVLine(lines[3]).some(c2=>c2.trim().toLowerCase().includes('telephone'))));
+    if(isPastelReport){
+      const customers=parsePastelCustomers(lines);
+      if(!customers.length){
+        alert('No active customer records found in the Pastel report.');
+        return;
+      }
+      let imported=0,updated=0;
+      const usedIds=new Set(lifts.map(l=>l.lift.toLowerCase()));
+      for(const cust of customers){
+        const existingIdx=lifts.findIndex(l=>l.client.toLowerCase()===cust.name.toLowerCase());
+        if(existingIdx>=0){
+          // Update outstanding balance; fill phone/address if blank
+          lifts[existingIdx].outstanding=cust.balance;
+          if(!lifts[existingIdx].phone&&cust.phone) lifts[existingIdx].phone=cust.phone;
+          if(!lifts[existingIdx].address&&cust.address) lifts[existingIdx].address=cust.address;
+          updated++;
+        } else {
+          const liftId=generateLiftId(cust.name,usedIds);
+          lifts.push({client:cust.name,address:cust.address,phone:cust.phone,lift:liftId,
+            frequency:6,lastService:Date.now(),isFaulty:false,outstanding:cust.balance,
+            outstandingNote:cust.balance>0?'Imported from accounting':''});
+          usedIds.add(liftId.toLowerCase());
+          imported++;
+        }
+      }
+      renderAdmin();
+      fileInput.value='';
+      await save();
+      alert(`Pastel Import Complete!\n\n✅ New clients added: ${imported}\n🔄 Existing clients updated: ${updated}\n📋 Total processed: ${customers.length}\n\n💡 Tip: Edit each lift to set the correct Lift ID and service frequency.`);
+      return;
+    }
+
     // Parse header row to find column positions (case-insensitive, flexible names)
     let headerCols=parseCSVLine(lines[0]).map(h=>h.trim().toLowerCase());
     function colIdx(...names){
@@ -2824,10 +2861,10 @@ function parseCSVLine(line){
   let cols=[];
   let current='';
   let inQuotes=false;
-  
+
   for(let i=0;i<line.length;i++){
     let char=line[i];
-    
+
     if(char==='"'){
       inQuotes=!inQuotes;
     } else if(char===',' && !inQuotes){
@@ -2838,8 +2875,56 @@ function parseCSVLine(line){
     }
   }
   cols.push(current);
-  
+
   return cols;
+}
+
+// Parse a Pastel/Sage "Customer Listing Report" (multi-row-per-customer format)
+function parsePastelCustomers(lines){
+  let customers=[];
+  let i=0;
+  // Advance past the report title and company header rows to the column header row
+  while(i<lines.length){
+    let cols=parseCSVLine(lines[i]);
+    if(cols[0]&&cols[0].trim().toLowerCase()==='name'&&cols.length>=6){i++;break;}
+    i++;
+  }
+  while(i<lines.length){
+    if(!lines[i].trim()){i++;continue;}
+    let cols=parseCSVLine(lines[i]);
+    let name=(cols[0]||'').trim();
+    let isActive=(cols[3]||'').trim()==='Yes';
+    if(!name||!isActive){i++;continue;}
+    let telephone=(cols[5]||'').trim();
+    let balance=parseFloat((cols[6]||'0').replace(/[^0-9.\-]/g,''))||0;
+    i++;
+    let addrParts=[],mobile='';
+    while(i<lines.length){
+      let bc=parseCSVLine(lines[i]);
+      let label=(bc[2]||'').trim();
+      let col0=(bc[0]||'').trim();
+      if(label==='Mobile:') mobile=(bc[4]||'').trim();
+      if(label.includes('Default Price List')){i++;break;}
+      if(col0&&col0!=='Delivery Address:'&&!/^\d{4,5}$/.test(col0))
+        addrParts.push(col0);
+      i++;
+    }
+    customers.push({name,phone:telephone||mobile,address:addrParts.join(', '),balance});
+  }
+  return customers;
+}
+
+// Generate a short Lift ID from a client name; usedIds is a Set (lowercase) of taken IDs
+function generateLiftId(name,usedIds){
+  let base=name
+    .replace(/\(Pty\)\s*Ltd\.?/gi,'').replace(/\bCC\b\.?/gi,'')
+    .replace(/\bLtd\.?\b/gi,'').replace(/\(.*?\)/g,'')
+    .trim().toUpperCase().replace(/[^A-Z0-9\s]/g,'')
+    .split(/\s+/).filter(Boolean).slice(0,2).join('-').substring(0,12);
+  if(!base) base='CLIENT';
+  let id=base,n=2;
+  while(usedIds.has(id.toLowerCase())) id=base+'-'+n++;
+  return id;
 }
 
 
