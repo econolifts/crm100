@@ -72,7 +72,7 @@ body {
 button, input, select, textarea {
   padding: 12px 16px;
   margin: 8px 0;
-  font-size: 15px;
+  font-size: 16px; /* 16px minimum prevents auto-zoom on Android/iOS */
   border: 1px solid var(--border-color);
   border-radius: 8px;
   width: 100%;
@@ -579,6 +579,7 @@ a:hover {
   .tab {
     font-size: 11px;
     padding: 10px 8px;
+    min-height: 36px; /* meet minimum touch target on Android */
   }
   
   .kanban-container {
@@ -1523,13 +1524,24 @@ canvas {
 <option value="6">6 Monthly</option>
 <option value="12">Yearly</option>
 </select>
+<input type="number" id="outstandingAmount" placeholder="Outstanding Amount (R) — leave 0 if none" min="0" step="0.01">
+<input type="text" id="outstandingNote" placeholder="Outstanding amount details (e.g. Invoice #123 unpaid)">
 <button onclick="addLift()" class="btn-success">Add Lift</button>
 </div>
 <div class="card">
 <h3>📁 Import Lifts from CSV</h3>
-<p style="font-size:13px;color:#666">Upload a CSV file with columns: Client, Address, Phone, Lift ID, Frequency</p>
+<p style="font-size:13px;color:#666">Upload a CSV file. First row must be a header — column names are detected automatically (any order). Required: <strong>Client</strong> and/or <strong>Lift ID</strong>. Optional: Address, Phone, Frequency, Outstanding Amount, Note.</p>
 <input type="file" id="csvFileInput" accept=".csv" style="padding:8px">
 <button onclick="importCSV()" class="btn-warning">Import CSV File</button>
+</div>
+<div class="card">
+<h3>💰 Import Unpaid Accounts from CSV</h3>
+<p style="font-size:13px;color:#666;margin-bottom:8px">Upload a CSV to mark clients as having an outstanding balance. Matches by <strong>Lift ID</strong> first, then by <strong>Client Name</strong> if no Lift ID is provided.</p>
+<p style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Required columns: <code>Lift ID</code> (or <code>Client Name</code>), <code>Amount Owing</code> — Optional: <code>Note</code></p>
+<button onclick="downloadUnpaidTemplate()" class="btn-secondary" style="margin-bottom:8px;font-size:12px">⬇️ Download Sample CSV Template</button>
+<input type="file" id="unpaidCsvFileInput" accept=".csv" style="padding:8px">
+<button onclick="importUnpaidCSV()" class="btn-warning">Import Unpaid Accounts</button>
+<div id="unpaidImportResult" style="margin-top:8px;font-size:13px"></div>
 </div>
 <div class="card">
 <h3>📋 All Lifts</h3>
@@ -1987,6 +1999,8 @@ canvas {
 <option value="6">6 Monthly</option>
 <option value="12">Yearly</option>
 </select>
+<input type="number" id="editOutstandingAmount" placeholder="Outstanding Amount (R)" min="0" step="0.01">
+<input type="text" id="editOutstandingNote" placeholder="Outstanding amount details">
 <button onclick="updateLift()" class="btn-success">Update Lift</button>
 <button onclick="closeEditLiftModal()" class="btn-secondary">Cancel</button>
 </div>
@@ -2060,6 +2074,9 @@ canvas {
 <!-- Firebase CDN (compat version for plain HTML) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<!-- Vendor fallback (served locally) -->
+<script>if(typeof firebase==='undefined'){document.write('<script src="/vendor/firebase-app-compat.js"><\/script><script src="/vendor/firebase-firestore-compat.js"><\/script><script src="/vendor/firebase-storage-compat.js"><\/script>');}</script>
 <script>
 // ── Firebase Init ──────────────────────────────────────────────
 const firebaseConfig = {
@@ -2072,6 +2089,7 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const storage = firebase.storage();
 
 // ── Firestore helpers ──────────────────────────────────────────
 // All app data lives in a single Firestore document: crm/data
@@ -2127,6 +2145,13 @@ function startRealtimeSync() {
   }, (err) => {
     console.error('Realtime sync error:', err);
   });
+}
+
+// Upload a File object to Firebase Storage and return its download URL
+async function uploadFileToStorage(file, path) {
+  const ref = storage.ref(path);
+  await ref.put(file);
+  return await ref.getDownloadURL();
 }
 
 // Loading Indicator Functions
@@ -2517,6 +2542,15 @@ function showTab(tab,ev){
   if(tab==='calendar') renderCalendar();
   if(tab==='tracking') renderTechTracking();
   if(tab==='lifts') renderAdmin();
+  if(tab==='settings'){
+    renderQuickReplies();
+    const langEl=document.getElementById('whatsappLanguage');
+    const numEl=document.getElementById('whatsappBusinessNumber');
+    const keyEl=document.getElementById('whatsappApiKey');
+    if(langEl) langEl.value=whatsappSettings.language||'en';
+    if(numEl) numEl.value=whatsappSettings.businessNumber||'';
+    if(keyEl) keyEl.value=whatsappSettings.apiKey||'';
+  }
 }
 
 function showTechTab(tab,ev){
@@ -2542,7 +2576,19 @@ function addLift(){
     alert('Please enter a valid service frequency (in months)');
     return;
   }
-  
+
+  // Reject duplicate lift ID
+  if(lifts.find(l=>l.lift.toLowerCase()===lift.toLowerCase())){
+    alert(`❌ Lift ID "${lift}" already exists in the system.\n\nPlease use a unique Lift ID.`);
+    return;
+  }
+  // Reject duplicate client name
+  if(lifts.find(l=>l.client.toLowerCase()===client.toLowerCase())){
+    if(!confirm(`⚠️ Client "${client}" already has a lift registered.\n\nAdd another lift for this client anyway?`)){
+      return;
+    }
+  }
+
   showLoader('Adding lift...');
   
   setTimeout(async () => {
@@ -2553,19 +2599,104 @@ function addLift(){
       lift,
       frequency,
       lastService:Date.now(),
-      isFaulty:false
+      isFaulty:false,
+      outstanding: parseFloat(document.getElementById('outstandingAmount').value)||0,
+      outstandingNote: document.getElementById('outstandingNote').value.trim(),
     });
 
+    document.getElementById('client').value='';
+    document.getElementById('clientAddress').value='';
+    document.getElementById('clientPhone').value='';
+    document.getElementById('lift').value='';
+    document.getElementById('outstandingAmount').value='';
+    document.getElementById('outstandingNote').value='';
     await save();
     renderAdmin();
     hideLoader();
-
-    document.getElementById('client').value='';
-  document.getElementById('clientAddress').value='';
-  document.getElementById('clientPhone').value='';
-  document.getElementById('lift').value='';
-  alert('Lift added successfully!');
+    alert('Lift added successfully!');
   }, 100);
+}
+
+function downloadUnpaidTemplate(){
+  const rows=[
+    ['Lift ID','Client Name','Amount Owing','Note'],
+    ['LIFT-001','','1500.00','Invoice #101 overdue 30 days'],
+    ['','Acme Corp','850.50','Invoice #102 unpaid'],
+    ['LIFT-003','','0','Paid in full — clear balance'],
+  ];
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='unpaid-accounts-template.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function importUnpaidCSV(){
+  const fileInput=document.getElementById('unpaidCsvFileInput');
+  const resultDiv=document.getElementById('unpaidImportResult');
+  const file=fileInput.files[0];
+
+  if(!file){
+    alert('Please select a CSV file first');
+    return;
+  }
+
+  const reader=new FileReader();
+  reader.onload=async function(e){
+    const lines=e.target.result.split('\n');
+    let updated=0, cleared=0, notFound=[], skipped=0;
+
+    for(let i=1;i<lines.length;i++){
+      const line=lines[i].trim();
+      if(!line) continue;
+
+      const cols=parseCSVLine(line);
+      // Accept: Lift ID, Client Name, Amount Owing, Note
+      const liftId=(cols[0]||'').trim();
+      const clientName=(cols[1]||'').trim();
+      const rawAmount=(cols[2]||'').trim();
+      const note=(cols[3]||'').trim();
+
+      if(!liftId && !clientName){ skipped++; continue; }
+
+      // Match by Lift ID first, then by client name
+      let idx=-1;
+      if(liftId) idx=lifts.findIndex(l=>l.lift.toLowerCase()===liftId.toLowerCase());
+      if(idx===-1 && clientName) idx=lifts.findIndex(l=>l.client.toLowerCase()===clientName.toLowerCase());
+
+      if(idx===-1){
+        notFound.push(liftId||clientName);
+        continue;
+      }
+
+      const amount=parseFloat(rawAmount.replace(/[^0-9.]/g,''));
+      const newAmount=isNaN(amount)?0:amount;
+      lifts[idx].outstanding=newAmount;
+      lifts[idx].outstandingNote=note||( newAmount>0 ? 'Imported from unpaid accounts CSV' : '' );
+
+      if(newAmount===0) cleared++; else updated++;
+    }
+
+    // Show result immediately before slow Firebase save
+    let html=`<span style="color:#10b981;font-weight:600">✅ ${updated} account(s) marked as outstanding</span>`;
+    if(cleared) html+=`<br><span style="color:#6b7280">✔ ${cleared} account(s) cleared (set to R0)</span>`;
+    if(notFound.length) html+=`<br><span style="color:#ef4444">❌ ${notFound.length} not found: ${notFound.slice(0,5).join(', ')}${notFound.length>5?'…':''}</span>`;
+    if(skipped) html+=`<br><span style="color:#6b7280">⚠ ${skipped} row(s) skipped (no ID or name)</span>`;
+    resultDiv.innerHTML=html;
+    fileInput.value='';
+
+    let msg=`Unpaid Accounts Import Complete!\n\n✅ ${updated} marked as outstanding\n✔ ${cleared} cleared to R0`;
+    if(notFound.length) msg+=`\n\n❌ ${notFound.length} not matched:\n${notFound.slice(0,10).join('\n')}${notFound.length>10?'\n…':''}`;
+    alert(msg);
+
+    await save();
+    renderAdmin();
+  };
+
+  reader.readAsText(file);
 }
 
 function importCSV(){
@@ -2580,64 +2711,108 @@ function importCSV(){
   let reader=new FileReader();
   reader.onload=async function(e){
     let text=e.target.result;
-    let lines=text.split('\n');
+    // Support both LF and CRLF line endings
+    let lines=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
     let imported=0;
     let skipped=0;
+    let duplicateLifts=[];
+    let duplicateClients=[];
+    let badRows=[];
 
-    // Skip header row (line 0)
-    for(let i=1;i<lines.length;i++){
+    if(lines.length<2){
+      alert('CSV file appears empty or has no data rows.');
+      return;
+    }
+
+    // Parse header row to find column positions (case-insensitive, flexible names)
+    let headerCols=parseCSVLine(lines[0]).map(h=>h.trim().toLowerCase());
+    function colIdx(...names){
+      for(let n of names){
+        let i=headerCols.findIndex(h=>h.includes(n));
+        if(i!==-1) return i;
+      }
+      return -1;
+    }
+    // Map known column names — fall back to positional if no header recognised
+    let hasHeader=headerCols.some(h=>['client','lift','name','address','phone','frequency','id'].some(k=>h.includes(k)));
+    let iClient    = hasHeader ? colIdx('client','name')                    : 0;
+    let iAddress   = hasHeader ? colIdx('address','street','location')      : 1;
+    let iPhone     = hasHeader ? colIdx('phone','tel','mobile','contact')   : 2;
+    let iLift      = hasHeader ? colIdx('lift id','liftid','lift','unit')   : 3;
+    let iFrequency = hasHeader ? colIdx('frequency','freq','service')       : 4;
+    let iOutstanding = hasHeader ? colIdx('outstanding','amount','owing','balance') : 5;
+    let iNote      = hasHeader ? colIdx('note','comment','remark','detail') : 6;
+
+    // Must have at least client or lift column
+    if(iClient===-1 && iLift===-1){
+      alert('Could not find a Client or Lift ID column in your CSV.\n\nPlease make sure the first row contains column headers like:\nClient, Lift ID, Address, Phone, Frequency');
+      return;
+    }
+
+    let startRow = hasHeader ? 1 : 0;
+    for(let i=startRow;i<lines.length;i++){
       let line=lines[i].trim();
       if(!line) continue;
 
-      // Parse CSV line (handle commas in quotes)
       let cols=parseCSVLine(line);
 
-      if(cols.length<5) continue;
+      let client   = (iClient>=0   && cols[iClient])   ? cols[iClient].trim()   : '';
+      let address  = (iAddress>=0  && cols[iAddress])  ? cols[iAddress].trim()  : '';
+      let phone    = (iPhone>=0    && cols[iPhone])    ? cols[iPhone].trim()    : '';
+      let liftId   = (iLift>=0     && cols[iLift])     ? cols[iLift].trim()     : '';
+      let freqRaw  = (iFrequency>=0 && cols[iFrequency]) ? cols[iFrequency].trim() : '';
 
-      let client=cols[0].trim();
-      let address=cols[1].trim();
-      let phone=cols[2].trim();
-      let liftId=cols[3].trim();
-      let frequency=cols[4].trim();
+      // Need at least one of client or lift ID
+      if(!client && !liftId){
+        badRows.push(`Row ${i+1}`);
+        skipped++;
+        continue;
+      }
+      // Use whichever identifier is available as the other if missing
+      if(!client) client=liftId;
+      if(!liftId) liftId=client;
 
-      // Skip if client or lift ID is empty
-      if(!client||!liftId){
+      // Reject duplicate lift ID (case-insensitive)
+      if(lifts.find(l=>l.lift.toLowerCase()===liftId.toLowerCase())){
+        duplicateLifts.push(liftId);
+        skipped++;
+        continue;
+      }
+      // Reject duplicate client name (case-insensitive)
+      if(lifts.find(l=>l.client.toLowerCase()===client.toLowerCase())){
+        duplicateClients.push(client);
         skipped++;
         continue;
       }
 
-      // Check if lift already exists
-      let exists=lifts.find(l=>l.lift===liftId);
-      if(exists){
-        skipped++;
-        continue;
-      }
-
-      // Default frequency to 6 months if not specified or invalid
+      // Frequency: accept any positive integer, default 6
       let freq=6;
-      if(frequency){
-        let parsed=parseInt(frequency);
-        if(!isNaN(parsed) && [1,3,6,12].includes(parsed)){
-          freq=parsed;
-        }
+      if(freqRaw){
+        let parsed=parseInt(freqRaw);
+        if(!isNaN(parsed) && parsed>0) freq=parsed;
       }
+
+      let outstanding = (iOutstanding>=0 && cols[iOutstanding])
+        ? parseFloat(cols[iOutstanding].replace(/[^0-9.]/g,'')) || 0 : 0;
+      let outstandingNote = (iNote>=0 && cols[iNote]) ? cols[iNote].trim() : '';
 
       lifts.push({
-        client:client,
-        address:address,
-        phone:phone,
-        lift:liftId,
-        frequency:freq,
-        lastService:Date.now(),
-        isFaulty:false
+        client,address,phone,lift:liftId,frequency:freq,
+        lastService:Date.now(),isFaulty:false,outstanding,outstandingNote
       });
       imported++;
     }
 
-    await save();
-    renderAdmin();
-    fileInput.value=''; // Clear file input
-    alert(`CSV Import Complete!\n\nImported: ${imported} lifts\nSkipped: ${skipped} (duplicates or invalid)`);
+    renderAdmin();        // show results immediately
+    fileInput.value='';
+    await save();         // sync to cloud in background
+
+    let msg=`CSV Import Complete!\n\nImported: ${imported} lift(s)\nSkipped: ${skipped}`;
+    if(duplicateLifts.length) msg+=`\n\n❌ Duplicate Lift IDs (${duplicateLifts.length}):\n${duplicateLifts.slice(0,10).join(', ')}${duplicateLifts.length>10?'…':''}`;
+    if(duplicateClients.length) msg+=`\n\n⚠️ Duplicate Client Names (${duplicateClients.length}):\n${duplicateClients.slice(0,10).join(', ')}${duplicateClients.length>10?'…':''}`;
+    if(badRows.length) msg+=`\n\n⚠️ ${badRows.length} row(s) had no Client or Lift ID and were skipped`;
+    if(imported===0 && skipped===0) msg+='\n\n💡 Tip: Make sure your CSV has a header row with column names like:\nClient, Lift ID, Address, Phone, Frequency';
+    alert(msg);
   };
 
   reader.readAsText(file);
@@ -2682,6 +2857,8 @@ function openEditLiftModal(i){
   document.getElementById('editLiftPhone').value=l.phone;
   document.getElementById('editLiftId').value=l.lift;
   document.getElementById('editLiftFrequency').value=l.frequency;
+  document.getElementById('editOutstandingAmount').value=l.outstanding||0;
+  document.getElementById('editOutstandingNote').value=l.outstandingNote||'';
   document.getElementById('editLiftModal').style.display='block';
 }
 
@@ -2702,6 +2879,8 @@ async function updateLift(){
   lifts[editingLiftIndex].phone=document.getElementById('editLiftPhone').value;
   lifts[editingLiftIndex].lift=document.getElementById('editLiftId').value;
   lifts[editingLiftIndex].frequency=newFreq;
+  lifts[editingLiftIndex].outstanding=parseFloat(document.getElementById('editOutstandingAmount').value)||0;
+  lifts[editingLiftIndex].outstandingNote=document.getElementById('editOutstandingNote').value.trim();
   await save();
   renderAdmin();
   closeEditLiftModal();
@@ -2798,19 +2977,14 @@ function createTicket(){
   
   let ticketNumber=getNextTicketNumber();
   
-  // Convert photos to base64
+  // Upload photos to Firebase Storage
   let photos=[];
-  let processPhotos=Array.from(photoFiles).map(file=>{
-    return new Promise((resolve)=>{
-      let reader=new FileReader();
-      reader.onload=function(e){
-        photos.push({data:e.target.result,name:file.name,date:new Date().toISOString()});
-        resolve();
-      };
-      reader.readAsDataURL(file);
-    });
+  let processPhotos=Array.from(photoFiles).map(async file=>{
+    const path=`ticket-photos/${ticketNumber}/${Date.now()}-${file.name}`;
+    const url=await uploadFileToStorage(file, path);
+    photos.push({url, name:file.name, date:new Date().toISOString(), storagePath:path});
   });
-  
+
   Promise.all(processPhotos).then(async ()=>{
     let isFaulty=jobType==='Faulty';
 
@@ -3043,15 +3217,19 @@ function renderLiftCards(){
     let status=dueIn<0?'⚠️ OVERDUE':(dueIn<7?'🟡 Due Soon':'✅ OK');
     let statusClass=dueIn<0?'status-overdue':'';
     let faultyBadge=l.isFaulty?'<span style="background:#ff6b6b;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;margin-left:6px">FAULTY</span>':'';
+    // Outstanding info is admin/office-only
+    let outstandingBadge=(currentAdmin && l.outstanding>0)?`<span style="background:#f59e0b;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;margin-left:6px">💰 R${Number(l.outstanding).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2})} OUTSTANDING</span>`:'';
+    let outstandingRow=(currentAdmin && l.outstanding>0)?`<span style="color:#f59e0b;font-weight:600">💰 Outstanding: R${Number(l.outstanding).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2})}${l.outstandingNote?' — '+escAttr(l.outstandingNote):''}</span>`:'';
     cards.push(`<div class="lift-card-item ${statusClass}">
       <div class="lift-card-header">
-        <strong>${escAttr(l.client)} — ${escAttr(l.lift)} ${faultyBadge}</strong>
+        <strong>${escAttr(l.client)} — ${escAttr(l.lift)} ${faultyBadge}${outstandingBadge}</strong>
         <span style="font-size:13px;font-weight:600">${status} (${dueIn}d)</span>
       </div>
       <div class="lift-card-details">
         <span>📍 ${escAttr(l.address)}</span>
         <span>📞 ${escAttr(l.phone)}</span>
         <span>🔄 Every ${l.frequency} month(s)</span>
+        ${outstandingRow?`<span style="color:#f59e0b;font-weight:600">💰 Outstanding: R${Number(l.outstanding).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2})}${l.outstandingNote?' — '+escAttr(l.outstandingNote):''}</span>`:''}
       </div>
       <div class="lift-card-actions">
         <button onclick="viewLiftHistory('${escAttr(l.lift)}')" class="btn-small" style="background:#17a2b8;color:#fff">📚 History</button>
@@ -3381,7 +3559,7 @@ function renderTicketCard(t,i){
       if(h.photos && h.photos.length>0){
         historyHtml+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:5px">`;
         h.photos.forEach(p=>{
-          historyHtml+=`<img src="${p.data}" style="width:100%;height:60px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open('${p.data}','_blank')">`;
+          historyHtml+=`<img src="${p.url||p.data||''}" style="width:100%;height:60px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open(this.src,'_blank')">`;
         });
         historyHtml+=`</div>`;
       }
@@ -3400,7 +3578,7 @@ function renderTicketCard(t,i){
       if(n.photos && n.photos.length>0){
         currentNotesHtml+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:5px">`;
         n.photos.forEach(p=>{
-          currentNotesHtml+=`<img src="${p.data}" style="width:100%;height:80px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open('${p.data}','_blank')">`;
+          currentNotesHtml+=`<img src="${p.url||p.data||''}" style="width:100%;height:80px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open(this.src,'_blank')">`;
         });
         currentNotesHtml+=`</div>`;
       }
@@ -3414,13 +3592,20 @@ function renderTicketCard(t,i){
   if(t.photos && t.photos.length>0){
     ticketPhotosHtml='<div style="margin:10px 0"><strong>Attached Photos:</strong></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:10px">';
     t.photos.forEach(p=>{
-      ticketPhotosHtml+=`<img src="${p.data}" style="width:100%;height:80px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open('${p.data}','_blank')">`;
+      ticketPhotosHtml+=`<img src="${p.url||p.data||''}" style="width:100%;height:80px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open(this.src,'_blank')">`;
     });
     ticketPhotosHtml+='</div>';
   }
   
   let inProgressBadge=t.status==='In Progress'?'<div style="background:#ff9800;color:#fff;padding:5px;border-radius:4px;margin:5px 0;font-weight:bold">🔄 IN PROGRESS</div>':'';
   let faultyBadge=t.isFaulty?'<div style="background:#ff6b6b;color:#fff;padding:5px;border-radius:4px;margin:5px 0">⚠️ MARKED AS FAULTY</div>':'';
+  let liftData = lifts.find(l => l.lift === t.lift.lift);
+  // Outstanding balance is admin/office-only — never shown to technicians
+  let outstandingWarning = (currentAdmin && liftData && liftData.outstanding > 0)
+    ? `<div style="background:#f59e0b22;border:1px solid #f59e0b;border-radius:8px;padding:8px 12px;margin:8px 0;color:#f59e0b;font-weight:600;font-size:13px">
+         💰 Outstanding balance: R${Number(liftData.outstanding).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2})}${liftData.outstandingNote?' — '+escAttr(liftData.outstandingNote):''}
+       </div>`
+    : '';
   let overdue=t.scheduledDate<new Date().toISOString().split('T')[0]?'<div style="color:red">⚠️ OVERDUE</div>':'';
   
   let jobType=t.jobType||'Service';
@@ -3463,6 +3648,7 @@ function renderTicketCard(t,i){
       ${priorityBadge}
       ${inProgressBadge}
       ${faultyBadge}
+      ${outstandingWarning}
       ${overdue}
       <div class="address-text">📍 ${t.lift.address}</div>
       <button onclick="openMap('${t.lift.address}')" class="btn-small map-link">📍 Open in Google Maps</button>
@@ -3494,7 +3680,7 @@ function closeNoteModal(){
   currentTicketIndex=-1;
 }
 
-function completeJob(){
+async function completeJob(){
   if(currentTicketIndex===-1) return;
   
   let note=document.getElementById('serviceNote').value;
@@ -3509,22 +3695,13 @@ function completeJob(){
   
   let ticket=tickets[currentTicketIndex];
   
-  // Process photos
+  // Upload service photos to Firebase Storage
   let photos=[];
-  let processPhotos=Array.from(photoFiles).map(file=>{
-    return new Promise((resolve)=>{
-      let reader=new FileReader();
-      reader.onload=function(e){
-        photos.push({
-          data:e.target.result,
-          name:file.name,
-          date:new Date().toISOString(),
-          tech:currentTech
-        });
-        resolve();
-      };
-      reader.readAsDataURL(file);
-    });
+  let ticketRef=ticket.ticketNumber||`idx-${currentTicketIndex}`;
+  let processPhotos=Array.from(photoFiles).map(async file=>{
+    const path=`service-photos/${ticketRef}/${Date.now()}-${file.name}`;
+    const url=await uploadFileToStorage(file, path);
+    photos.push({url, name:file.name, date:new Date().toISOString(), tech:currentTech, storagePath:path});
   });
   
   Promise.all(processPhotos).then(async ()=>{
@@ -4006,6 +4183,75 @@ async function changeAdminPassword(){
   alert('Password changed successfully!');
 }
 
+function saveWhatsAppSettings(){
+  whatsappSettings.language=document.getElementById('whatsappLanguage').value;
+  const num=document.getElementById('whatsappBusinessNumber');
+  const key=document.getElementById('whatsappApiKey');
+  if(num) whatsappSettings.businessNumber=num.value.trim();
+  if(key) whatsappSettings.apiKey=key.value.trim();
+  save();
+}
+
+function openQuickReplyModal(){
+  document.getElementById('quickReplyName').value='';
+  document.getElementById('quickReplyMessage').value='';
+  document.getElementById('quickReplyLanguage').value='en';
+  document.getElementById('quickReplyModal').style.display='block';
+}
+
+function closeQuickReplyModal(){
+  document.getElementById('quickReplyModal').style.display='none';
+}
+
+function saveQuickReply(){
+  let name=document.getElementById('quickReplyName').value.trim();
+  let message=document.getElementById('quickReplyMessage').value.trim();
+  let language=document.getElementById('quickReplyLanguage').value;
+  if(!name||!message){
+    alert('Please enter a name and message');
+    return;
+  }
+  if(!whatsappSettings.quickReplies) whatsappSettings.quickReplies=[];
+  whatsappSettings.quickReplies.push({name,message,language});
+  save();
+  closeQuickReplyModal();
+  renderQuickReplies();
+}
+
+function renderQuickReplies(){
+  let list=document.getElementById('quickRepliesList');
+  if(!list) return;
+  if(!whatsappSettings.quickReplies||whatsappSettings.quickReplies.length===0){
+    list.innerHTML='<p style="color:var(--text-muted);font-size:13px">No quick replies saved yet.</p>';
+    return;
+  }
+  list.innerHTML=whatsappSettings.quickReplies.map((r,i)=>
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--bg-secondary);border-radius:8px;margin-bottom:6px">
+      <div><strong>${escAttr(r.name)}</strong> <span style="font-size:11px;color:var(--text-muted)">[${r.language}]</span><br>
+      <span style="font-size:12px;color:var(--text-secondary)">${escAttr(r.message.substring(0,60))}${r.message.length>60?'…':''}</span></div>
+      <button onclick="deleteQuickReply(${i})" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 8px;cursor:pointer">🗑</button>
+    </div>`
+  ).join('');
+}
+
+function deleteQuickReply(i){
+  if(!confirm('Delete this quick reply?')) return;
+  whatsappSettings.quickReplies.splice(i,1);
+  save();
+  renderQuickReplies();
+}
+
+function testWhatsAppAPI(){
+  let num=document.getElementById('whatsappBusinessNumber').value.trim();
+  let key=document.getElementById('whatsappApiKey').value.trim();
+  if(!num||!key){
+    alert('Please enter your WhatsApp Business Number and API Key first.');
+    return;
+  }
+  alert('⚠️ API testing requires a server-side proxy due to CORS restrictions.\n\nTo test: send a manual WhatsApp message to your business number and confirm it is received.\n\nSettings have been saved.');
+  saveWhatsAppSettings();
+}
+
 function exportData(){
   let exportData={
     exportDate:new Date().toISOString(),
@@ -4192,7 +4438,7 @@ function viewLiftHistory(liftId){
           if(note.photos && note.photos.length>0){
             historyHtml+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px">`;
             note.photos.forEach(photo=>{
-              historyHtml+=`<img src="${photo.data}" style="width:100%;height:80px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open('${photo.data}','_blank')">`;
+              historyHtml+=`<img src="${photo.url||photo.data||''}" style="width:100%;height:80px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open(this.src,'_blank')">`;
             });
             historyHtml+=`</div>`;
           }
@@ -4289,7 +4535,7 @@ function closeDocumentsModal(){
   currentDocumentLiftId='';
 }
 
-function uploadDocument(){
+async function uploadDocument(){
   let title=document.getElementById('docTitle').value.trim();
   let type=document.getElementById('docType').value;
   let fileInput=document.getElementById('docFile');
@@ -4311,24 +4557,28 @@ function uploadDocument(){
     return;
   }
   
-  let reader=new FileReader();
-  reader.onload=async function(e){
+  showLoader('Uploading document...');
+  try {
+    const path=`documents/${currentDocumentLiftId}/${Date.now()}-${file.name}`;
+    const url=await uploadFileToStorage(file, path);
     liftDocuments.push({
       liftId:currentDocumentLiftId,
       title:title,
       type:type,
       fileName:file.name,
-      fileData:e.target.result,
+      fileUrl:url,
+      storagePath:path,
       uploadedDate:new Date().toISOString(),
       uploadedBy:currentAdmin||currentTech
     });
-
     await save();
-    openDocumentsModal(currentDocumentLiftId); // Refresh the modal
+    hideLoader();
+    openDocumentsModal(currentDocumentLiftId);
     alert('Document uploaded successfully!');
-  };
-
-  reader.readAsDataURL(file);
+  } catch(err) {
+    hideLoader();
+    alert('❌ Upload failed: '+err.message);
+  }
 }
 
 function viewDocument(docIndex){
@@ -4336,12 +4586,12 @@ function viewDocument(docIndex){
   let doc=docs[docIndex];
   
   if(doc){
-    // Open in new window
+    const src=doc.fileUrl||doc.fileData||'';
     let w=window.open('','_blank');
-    if(doc.fileData.startsWith('data:application/pdf')){
-      w.document.write(`<iframe src="${doc.fileData}" style="width:100%;height:100vh;border:none"></iframe>`);
+    if(src.includes('application/pdf')||doc.fileName.toLowerCase().endsWith('.pdf')){
+      w.document.write(`<iframe src="${src}" style="width:100%;height:100vh;border:none"></iframe>`);
     } else {
-      w.document.write(`<img src="${doc.fileData}" style="max-width:100%;height:auto">`);
+      w.document.write(`<img src="${src}" style="max-width:100%;height:auto">`);
     }
   }
 }
@@ -4349,11 +4599,12 @@ function viewDocument(docIndex){
 function downloadDocument(docIndex){
   let docs=liftDocuments.filter(d=>d.liftId===currentDocumentLiftId);
   let doc=docs[docIndex];
-  
+
   if(doc){
     let a=document.createElement('a');
-    a.href=doc.fileData;
+    a.href=doc.fileUrl||doc.fileData||'';
     a.download=doc.fileName;
+    a.target='_blank';
     a.click();
   }
 }
@@ -4365,11 +4616,14 @@ async function deleteDocument(docIndex){
   let doc=docs[docIndex];
 
   if(doc){
-    let globalIndex=liftDocuments.findIndex(d=>d.liftId===doc.liftId && d.fileName===doc.fileName && d.uploadDate===doc.uploadDate);
+    let globalIndex=liftDocuments.findIndex(d=>d.liftId===doc.liftId && d.fileName===doc.fileName && d.uploadedDate===doc.uploadedDate);
     if(globalIndex===-1) return;
+    if(doc.storagePath){
+      try { await storage.ref(doc.storagePath).delete(); } catch(e){ console.warn('Storage delete failed', e); }
+    }
     liftDocuments.splice(globalIndex,1);
     await save();
-    openDocumentsModal(currentDocumentLiftId); // Refresh
+    openDocumentsModal(currentDocumentLiftId);
     alert('Document deleted');
   }
 }
