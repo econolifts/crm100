@@ -1545,7 +1545,7 @@ canvas {
 </div>
 <div class="card">
 <h3>📋 All Lifts</h3>
-<input type="text" id="liftSearch" placeholder="🔍 Search lifts by client, address, phone, or lift ID..." oninput="filterLiftTable()" style="max-width:100%;margin-bottom:10px">
+<input type="text" id="liftSearch" placeholder="🔍 Search lifts by client, address, phone, or lift ID..." oninput="debouncedRender(filterLiftTable,200)" style="max-width:100%;margin-bottom:10px">
 <div id="liftSearchCount" style="font-size:12px;color:var(--text-muted);margin-bottom:10px"></div>
 <div class="lift-cards-list" id="liftCardsList"></div>
 </div>
@@ -1646,7 +1646,7 @@ canvas {
 
 <!-- Filter and Search -->
 <div class="filter-bar">
-<input type="text" id="fault-search" placeholder="🔍 Search faults by client, lift ID, or description..." onkeyup="filterFaults()">
+<input type="text" id="fault-search" placeholder="🔍 Search faults by client, lift ID, or description..." oninput="debouncedRender(filterFaults,200)">
 <select id="fault-priority-filter" onchange="filterFaults()">
 <option value="">All Priorities</option>
 <option value="Urgent">🔴 Urgent Only</option>
@@ -1762,7 +1762,7 @@ canvas {
 <div class="card">
 <h3>🎫 Create Ticket</h3>
 <label style="display:block;margin:0 0 5px 0;font-weight:600;font-size:13px;color:var(--text-secondary)">Select Lift</label>
-<input type="text" id="ticketLiftSearch" placeholder="🔍 Search lift by client or lift ID..." oninput="filterTicketLiftDropdown()" style="margin-bottom:0">
+<input type="text" id="ticketLiftSearch" placeholder="🔍 Search lift by client or lift ID..." oninput="debouncedRender(filterTicketLiftDropdown,200)" style="margin-bottom:0">
 <select id="ticketLift"></select>
 <label style="display:block;margin:10px 0 5px 0;font-weight:600;font-size:13px;color:var(--text-secondary)">Select Technician</label>
 <select id="ticketTech"></select>
@@ -1781,7 +1781,7 @@ canvas {
 </div>
 <div class="card">
 <h3>📊 All Tickets</h3>
-<input type="text" id="ticketTableSearch" placeholder="🔍 Search tickets by client, lift, tech, or ticket #..." oninput="filterTicketTable()" style="max-width:100%;margin-bottom:10px">
+<input type="text" id="ticketTableSearch" placeholder="🔍 Search tickets by client, lift, tech, or ticket #..." oninput="debouncedRender(filterTicketTable,200)" style="max-width:100%;margin-bottom:10px">
 <div id="ticketSearchCount" style="font-size:12px;color:var(--text-muted);margin-bottom:10px"></div>
 <div class="scroll-table">
 <table>
@@ -3375,29 +3375,31 @@ function filterTicketLiftDropdown(){
   let search=(document.getElementById('ticketLiftSearch')?.value||'').toLowerCase();
   let select=document.getElementById('ticketLift');
   if(!select) return;
-  select.innerHTML='<option value="">Select Lift</option>';
+  let opts=['<option value="">Select Lift</option>'];
   lifts.forEach((l,i)=>{
     let searchStr=(l.client+' '+l.lift).toLowerCase();
     if(search && !searchStr.includes(search)) return;
-    select.innerHTML+=`<option value="${i}">${escAttr(l.client)} - ${escAttr(l.lift)}</option>`;
+    opts.push(`<option value="${i}">${escAttr(l.client)} - ${escAttr(l.lift)}</option>`);
   });
+  select.innerHTML=opts.join('');
 }
 
 function filterTicketTable(){
   let search=(document.getElementById('ticketTableSearch')?.value||'').toLowerCase();
   let adminTicketTable=document.getElementById('adminTicketTable');
   if(!adminTicketTable) return;
-  adminTicketTable.innerHTML='';
+  let rows=[];
   let total=0;
+  const today=new Date().toISOString().split('T')[0];
   tickets.forEach((t,i)=>{
     let searchStr=(t.ticketNumber+' '+t.lift.client+' '+t.lift.lift+' '+t.lift.address+' '+(t.tech||'')+' '+(t.jobType||'')).toLowerCase();
     if(search && !searchStr.includes(search)) return;
     total++;
-    let statusClass=t.status==='Done'?'status-done':(t.scheduledDate<new Date().toISOString().split('T')[0]?'status-overdue':'status-open');
+    let statusClass=t.status==='Done'?'status-done':(t.scheduledDate<today?'status-overdue':'status-open');
     let faultyBadge=t.isFaulty?'<span style="background:#ff6b6b;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px">FAULTY</span>':'';
     let incompleteBadge=t.isIncomplete?'<span style="background:#ffa726;color:#000;padding:2px 6px;border-radius:4px;font-size:11px">INCOMPLETE</span>':'';
     let jobType=t.jobType||'Service';
-    adminTicketTable.innerHTML+=`
+    rows.push(`
       <tr class="${statusClass}">
         <td>${t.ticketNumber}</td>
         <td>${t.lift.client}</td>
@@ -3413,8 +3415,9 @@ function filterTicketTable(){
           <button onclick="deleteTicket(${i})" class="btn-small btn-danger">Delete</button>
         </td>
       </tr>
-    `;
+    `);
   });
+  adminTicketTable.innerHTML=rows.join('');
   let countEl=document.getElementById('ticketSearchCount');
   if(countEl) countEl.textContent=search?`Showing ${total} of ${tickets.length} tickets`:`${tickets.length} tickets total`;
 }
@@ -3470,25 +3473,26 @@ function checkReminders(){
   if(!reminderList) return;
   
   let count=0;
-  reminderList.innerHTML='';
-  
+  let reminderHtml=[];
+
   lifts.forEach((l,i)=>{
     let daysSince=Math.floor((Date.now()-l.lastService)/(1000*60*60*24));
     let dueIn=l.frequency*30-daysSince;
-    
+
     if(dueIn<=7 && dueIn>=-30){
       count++;
       let urgency=dueIn<0?'⚠️ OVERDUE':'🟡 Due Soon';
-      reminderList.innerHTML+=`
+      reminderHtml.push(`
         <div class="card" style="border-left:4px solid ${dueIn<0?'#dc3545':'#ffc107'}">
           <strong>${l.client} - ${l.lift}</strong><br>
           <span style="font-size:13px;color:#666">${l.address}</span><br>
           <span style="font-weight:bold;color:${dueIn<0?'#dc3545':'#856404'}">${urgency} (${dueIn} days)</span><br>
           <button onclick="sendServiceReminder('${l.phone}','${l.client}','${l.lift}','${l.address}')" class="btn-small btn-warning" style="margin-top:8px">📧 Send WhatsApp Reminder</button>
         </div>
-      `;
+      `);
     }
   });
+  reminderList.innerHTML=reminderHtml.join('');
   
   if(count===0){
     reminderList.innerHTML='<p style="color:#999;text-align:center">No maintenance reminders at this time</p>';
@@ -3512,16 +3516,13 @@ function checkFaulty(){
   let faultyLifts=lifts.filter(l=>l.isFaulty);
   let count=faultyLifts.length;
   
-  faultyList.innerHTML='';
-  faultyLifts.forEach(l=>{
-    faultyList.innerHTML+=`
+  faultyList.innerHTML=faultyLifts.map(l=>`
       <div class="card status-faulty">
         <strong>${l.client} - ${l.lift}</strong><br>
         <span style="font-size:13px">${l.address}</span><br>
         <span style="font-size:13px">Phone: ${l.phone}</span>
       </div>
-    `;
-  });
+    `).join('');
   
   if(count===0){
     faultyList.innerHTML='<p style="color:#999;text-align:center">No faulty lifts reported</p>';
@@ -3545,9 +3546,7 @@ function checkIncomplete(){
   let incompleteTickets=tickets.filter(t=>t.isIncomplete && t.status==='Open');
   let count=incompleteTickets.length;
   
-  incompleteList.innerHTML='';
-  incompleteTickets.forEach(t=>{
-    incompleteList.innerHTML+=`
+  incompleteList.innerHTML=incompleteTickets.map(t=>`
       <div class="card status-incomplete">
         <strong>Ticket: ${t.ticketNumber}</strong><br>
         <strong>${t.lift.client} - ${t.lift.lift}</strong><br>
@@ -3555,8 +3554,7 @@ function checkIncomplete(){
         <span style="font-size:13px">Scheduled: ${t.scheduledDate}</span><br>
         <span style="font-size:13px">Tech: ${t.tech||'N/A'}</span>
       </div>
-    `;
-  });
+    `).join('');
   
   if(count===0){
     incompleteList.innerHTML='<p style="color:#999;text-align:center">No incomplete jobs</p>';
@@ -3576,46 +3574,37 @@ function checkIncomplete(){
 function renderTech(){
   if(!currentTech) return;
 
-  let myTickets=tickets.filter(t=>t.tech===currentTech && (t.status==='Open' || t.status==='In Progress'));
   let today=new Date().toISOString().split('T')[0];
-  let todayJobs=myTickets.filter(t=>t.scheduledDate===today);
-  let allJobs=myTickets.filter(t=>t.scheduledDate!==today);
-  let completedJobs=tickets.filter(t=>t.tech===currentTech && t.status==='Done');
+  let todayJobs=[],allJobs=[],completedJobs=[];
+  tickets.forEach((t,idx)=>{
+    if(t.tech!==currentTech) return;
+    if(t.status==='Done'){ completedJobs.push({t,idx}); return; }
+    if(t.status==='Open'||t.status==='In Progress'){
+      if(t.scheduledDate===today) todayJobs.push({t,idx});
+      else allJobs.push({t,idx});
+    }
+  });
 
   // Today's Jobs
   let techJobsToday=document.getElementById('techJobsToday');
   if(!techJobsToday) return;
-  techJobsToday.innerHTML='';
-  if(todayJobs.length===0){
-    techJobsToday.innerHTML='<p style="color:#999;text-align:center">No jobs scheduled for today</p>';
-  } else {
-    todayJobs.forEach((t,i)=>{
-      let idx=tickets.findIndex(ticket=>ticket.ticketNumber===t.ticketNumber);
-      techJobsToday.innerHTML+=renderTicketCard(t,idx);
-    });
-  }
+  techJobsToday.innerHTML=todayJobs.length===0
+    ?'<p style="color:#999;text-align:center">No jobs scheduled for today</p>'
+    :todayJobs.map(({t,idx})=>renderTicketCard(t,idx)).join('');
 
   // All Open Jobs
   let techJobsAll=document.getElementById('techJobsAll');
-  techJobsAll.innerHTML='';
-  if(allJobs.length===0){
-    techJobsAll.innerHTML='<p style="color:#999;text-align:center">No other jobs scheduled</p>';
-  } else {
-    allJobs.forEach((t,i)=>{
-      let idx=tickets.findIndex(ticket=>ticket.ticketNumber===t.ticketNumber);
-      techJobsAll.innerHTML+=renderTicketCard(t,idx);
-    });
-  }
-  
+  techJobsAll.innerHTML=allJobs.length===0
+    ?'<p style="color:#999;text-align:center">No other jobs scheduled</p>'
+    :allJobs.map(({t,idx})=>renderTicketCard(t,idx)).join('');
+
   // Completed Jobs
   let techJobsCompleted=document.getElementById('techJobsCompleted');
-  techJobsCompleted.innerHTML='';
-  if(completedJobs.length===0){
-    techJobsCompleted.innerHTML='<p style="color:#999;text-align:center">No completed jobs yet</p>';
-  } else {
-    completedJobs.forEach((t,i)=>{
+  techJobsCompleted.innerHTML=completedJobs.length===0
+    ?'<p style="color:#999;text-align:center">No completed jobs yet</p>'
+    :completedJobs.map(({t})=>{
       let completedDate=t.completed?new Date(t.completed).toLocaleDateString():'N/A';
-      techJobsCompleted.innerHTML+=`
+      return `
         <div class="card status-done">
           <div style="background:#28a745;color:#fff;padding:6px;border-radius:4px;margin-bottom:8px;font-weight:bold">✅ Completed: ${completedDate}</div>
           <strong>${t.lift.client} - ${t.lift.lift}</strong><br>
@@ -3623,16 +3612,12 @@ function renderTech(){
           <span style="font-size:13px;color:#666">Type: ${t.jobType||'Service'}</span>
         </div>
       `;
-    });
-  }
-  
+    }).join('');
+
   // Populate lift dropdown for quick fault reporting
   let techFaultLiftSelect=document.getElementById('techFaultLiftSelect');
   if(techFaultLiftSelect){
-    techFaultLiftSelect.innerHTML='<option value="">Select Lift</option>';
-    lifts.forEach((l,i)=>{
-      techFaultLiftSelect.innerHTML+=`<option value="${i}">${l.client} - ${l.lift}</option>`;
-    });
+    techFaultLiftSelect.innerHTML='<option value="">Select Lift</option>'+lifts.map((l,i)=>`<option value="${i}">${l.client} - ${l.lift}</option>`).join('');
   }
 }
 
@@ -4174,13 +4159,12 @@ function generateReport(){
   document.getElementById('reportSummary').innerHTML=summary;
   
   let techReportTable=document.getElementById('techReportTable');
-  techReportTable.innerHTML='';
-  techs.forEach((tech,idx)=>{
+  techReportTable.innerHTML=techs.map(tech=>{
     let techTickets=filteredTickets.filter(t=>t.tech===tech.name);
     let completed=techTickets.filter(t=>t.status==='Done').length;
     let open=techTickets.filter(t=>t.status==='Open').length;
-    techReportTable.innerHTML+=`<tr><td>${tech.name}</td><td>${completed}</td><td>${open}</td><td>${techTickets.length}</td></tr>`;
-  });
+    return `<tr><td>${tech.name}</td><td>${completed}</td><td>${open}</td><td>${techTickets.length}</td></tr>`;
+  }).join('');
   
   let clientReportTable=document.getElementById('clientReportTable');
   clientReportTable.innerHTML='';
@@ -4196,32 +4180,33 @@ function generateReport(){
     }
   });
   
-  Object.keys(clientServices).forEach(client=>{
-    let lastService=new Date(clientServices[client].lastService).toLocaleDateString();
-    clientReportTable.innerHTML+=`<tr><td>${client}</td><td>${clientServices[client].count}</td><td>${lastService}</td></tr>`;
-  });
-  
-  if(Object.keys(clientServices).length===0){
-    clientReportTable.innerHTML='<tr><td colspan="3" style="text-align:center;color:#999">No completed services in this period</td></tr>';
-  }
-  
+  const clientKeys=Object.keys(clientServices);
+  clientReportTable.innerHTML=clientKeys.length===0
+    ?'<tr><td colspan="3" style="text-align:center;color:#999">No completed services in this period</td></tr>'
+    :clientKeys.map(client=>{
+      let lastService=new Date(clientServices[client].lastService).toLocaleDateString();
+      return `<tr><td>${client}</td><td>${clientServices[client].count}</td><td>${lastService}</td></tr>`;
+    }).join('');
+
   let typeReportTable=document.getElementById('typeReportTable');
-  typeReportTable.innerHTML='';
   let typeCounts={};
   completedTickets.forEach(t=>{
     let type=t.jobType||'Service';
     typeCounts[type]=(typeCounts[type]||0)+1;
   });
-  
-  Object.keys(typeCounts).forEach(type=>{
-    let percentage=((typeCounts[type]/completedTickets.length)*100).toFixed(1);
-    let icon='🔧';
-    if(type==='Faulty') icon='⚠️';
-    else if(type==='Upgrade') icon='⬆️';
-    else if(type==='New Install') icon='🆕';
-    else if(type==='Inspection') icon='🔍';
-    typeReportTable.innerHTML+=`<tr><td>${icon} ${type}</td><td>${typeCounts[type]}</td><td>${percentage}%</td></tr>`;
-  });
+
+  const typeKeys=Object.keys(typeCounts);
+  typeReportTable.innerHTML=typeKeys.length===0
+    ?'<tr><td colspan="3" style="text-align:center;color:#999">No completed services in this period</td></tr>'
+    :typeKeys.map(type=>{
+      let percentage=((typeCounts[type]/completedTickets.length)*100).toFixed(1);
+      let icon='🔧';
+      if(type==='Faulty') icon='⚠️';
+      else if(type==='Upgrade') icon='⬆️';
+      else if(type==='New Install') icon='🆕';
+      else if(type==='Inspection') icon='🔍';
+      return `<tr><td>${icon} ${type}</td><td>${typeCounts[type]}</td><td>${percentage}%</td></tr>`;
+    }).join('');
   
   if(Object.keys(typeCounts).length===0){
     typeReportTable.innerHTML='<tr><td colspan="3" style="text-align:center;color:#999">No completed services in this period</td></tr>';
@@ -4953,6 +4938,8 @@ function renderUpcomingTasks(){
   }
 }
 
+let _servicesChart=null, _performanceChart=null;
+
 function renderCharts(){
   // Only load charts if Chart.js is available and dashboard is visible
   if(typeof Chart === 'undefined'){
@@ -4963,81 +4950,69 @@ function renderCharts(){
   // Services by Type Chart
   let servicesCtx=document.getElementById('servicesChart');
   if(servicesCtx){
-    let existing=Chart.getChart(servicesCtx);
-    if(existing) existing.destroy();
-
     let types={};
     tickets.forEach(t=>{
       let type=t.jobType||'Service';
       types[type]=(types[type]||0)+1;
     });
+    const typeLabels=Object.keys(types);
+    const typeData=Object.values(types);
 
-    new Chart(servicesCtx,{
-      type:'doughnut',
-      data:{
-        labels:Object.keys(types),
-        datasets:[{
-          data:Object.values(types),
-          backgroundColor:['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6']
-        }]
-      },
-      options:{
-        responsive:true,
-        maintainAspectRatio:false,
-        plugins:{
-          legend:{
-            labels:{color:'#f1f5f9'}
-          }
+    if(_servicesChart){
+      _servicesChart.data.labels=typeLabels;
+      _servicesChart.data.datasets[0].data=typeData;
+      _servicesChart.update('none');
+    } else {
+      _servicesChart=new Chart(servicesCtx,{
+        type:'doughnut',
+        data:{
+          labels:typeLabels,
+          datasets:[{
+            data:typeData,
+            backgroundColor:['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6']
+          }]
+        },
+        options:{
+          responsive:true,
+          maintainAspectRatio:false,
+          animation:false,
+          plugins:{legend:{labels:{color:'#f1f5f9'}}}
         }
-      }
-    });
+      });
+    }
   }
 
   // Monthly Performance Chart
   let perfCtx=document.getElementById('performanceChart');
   if(perfCtx){
-    let existing=Chart.getChart(perfCtx);
-    if(existing) existing.destroy();
-
     let months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     let data=new Array(12).fill(0);
-    
-    tickets.filter(t=>t.status==='Done' && t.completed).forEach(t=>{
-      let month=new Date(t.completed).getMonth();
-      data[month]++;
+    tickets.forEach(t=>{
+      if(t.status==='Done' && t.completed) data[new Date(t.completed).getMonth()]++;
     });
-    
-    new Chart(perfCtx,{
-      type:'bar',
-      data:{
-        labels:months,
-        datasets:[{
-          label:'Completed Services',
-          data:data,
-          backgroundColor:'#3b82f6'
-        }]
-      },
-      options:{
-        responsive:true,
-        maintainAspectRatio:false,
-        plugins:{
-          legend:{
-            labels:{color:'#f1f5f9'}
-          }
+
+    if(_performanceChart){
+      _performanceChart.data.datasets[0].data=data;
+      _performanceChart.update('none');
+    } else {
+      _performanceChart=new Chart(perfCtx,{
+        type:'bar',
+        data:{
+          labels:months,
+          datasets:[{label:'Completed Services',data:data,backgroundColor:'#3b82f6'}]
         },
-        scales:{
-          y:{
-            beginAtZero:true,
-            ticks:{color:'#cbd5e1'},
-            grid:{color:'#334155'}
-          },
-          x:{
-            ticks:{color:'#cbd5e1'},
-            grid:{color:'#334155'}
+        options:{
+          responsive:true,
+          maintainAspectRatio:false,
+          animation:false,
+          plugins:{legend:{labels:{color:'#f1f5f9'}}},
+          scales:{
+            y:{beginAtZero:true,ticks:{color:'#cbd5e1'},grid:{color:'#334155'}},
+            x:{ticks:{color:'#cbd5e1'},grid:{color:'#334155'}}
           }
         }
-      }
-    });
+      });
+    }
   }
 }
 
@@ -5064,10 +5039,7 @@ function renderKanban(){
 
 function populateKanbanFilters(){
   let techFilter=document.getElementById('kanban-filter-tech');
-  techFilter.innerHTML='<option value="">All Technicians</option>';
-  techs.forEach((t,i)=>{
-    techFilter.innerHTML+=`<option value="${t.name}">${t.name}</option>`;
-  });
+  techFilter.innerHTML='<option value="">All Technicians</option>'+techs.map(t=>`<option value="${t.name}">${t.name}</option>`).join('');
 }
 
 function updateKanbanBoard(){
@@ -5100,13 +5072,15 @@ function renderKanbanColumn(columnId,items){
   let column=document.getElementById(columnId);
   if(!column) return;
   
-  column.innerHTML='';
-  items.forEach((t,i)=>{
+  if(items.length===0){
+    column.innerHTML='<p style="color:var(--text-muted);text-align:center;padding:40px">No tickets</p>';
+    return;
+  }
+  column.innerHTML=items.map(t=>{
     let ticketIdx=tickets.findIndex(ticket=>ticket.ticketNumber===t.ticketNumber);
     let priority=t.priority||'Normal';
     let priorityColor=priority==='Urgent'?'var(--accent-danger)':priority==='High'?'var(--accent-warning)':'var(--text-muted)';
-    
-    column.innerHTML+=`
+    return `
       <div class="kanban-card" draggable="true" ondragstart="drag(event,${ticketIdx})" data-ticket="${ticketIdx}">
         <div class="kanban-card-title">${t.lift.client}</div>
         <div class="kanban-card-meta">🏢 ${t.lift.lift}</div>
@@ -5123,11 +5097,7 @@ function renderKanbanColumn(columnId,items){
         </div>
       </div>
     `;
-  });
-  
-  if(items.length===0){
-    column.innerHTML='<p style="color:var(--text-muted);text-align:center;padding:40px">No tickets</p>';
-  }
+  }).join('');
 }
 
 function allowDrop(ev){
@@ -5173,52 +5143,67 @@ function renderCalendar(){
     new Date(year,month).toLocaleString('default',{month:'long',year:'numeric'});
   
   let grid=document.getElementById('calendar-grid');
-  grid.innerHTML='';
-  
+
+  let cells=[];
+
   // Day headers
   ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(day=>{
-    grid.innerHTML+=`<div class="calendar-day-header">${day}</div>`;
+    cells.push(`<div class="calendar-day-header">${day}</div>`);
   });
-  
+
   // Get first day of month
   let firstDay=new Date(year,month,1).getDay();
   let daysInMonth=new Date(year,month+1,0).getDate();
   let daysInPrevMonth=new Date(year,month,0).getDate();
-  
+
   // Previous month days
   for(let i=firstDay-1;i>=0;i--){
-    grid.innerHTML+=`<div class="calendar-day other-month"><div class="calendar-day-number">${daysInPrevMonth-i}</div></div>`;
+    cells.push(`<div class="calendar-day other-month"><div class="calendar-day-number">${daysInPrevMonth-i}</div></div>`);
   }
-  
+
+  // Build a fast date-indexed lookup for this month's tickets
+  const monthStr=`${year}-${String(month+1).padStart(2,'0')}`;
+  const ticketsByDate={};
+  tickets.forEach(t=>{
+    if(t.scheduledDate && t.scheduledDate.startsWith(monthStr)){
+      if(!ticketsByDate[t.scheduledDate]) ticketsByDate[t.scheduledDate]=[];
+      ticketsByDate[t.scheduledDate].push(t);
+    }
+  });
+
+  const todayStr=new Date().toDateString();
+
   // Current month days
   for(let day=1;day<=daysInMonth;day++){
     let date=new Date(year,month,day);
-    let isToday=date.toDateString()===new Date().toDateString();
-    let dayTickets=getTicketsForDate(date);
-    
-    let eventsHtml='';
-    dayTickets.slice(0,3).forEach(t=>{
+    let isToday=date.toDateString()===todayStr;
+    let dateKey=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    let dayTickets=ticketsByDate[dateKey]||[];
+
+    let eventsHtml=dayTickets.slice(0,3).map(t=>{
       let eventClass=t.status==='Done'?'service':t.isFaulty?'overdue':'';
-      eventsHtml+=`<div class="calendar-event ${eventClass}" title="${t.lift.client} - ${t.lift.lift}">${t.ticketNumber}</div>`;
-    });
+      return `<div class="calendar-event ${eventClass}" title="${t.lift.client} - ${t.lift.lift}">${t.ticketNumber}</div>`;
+    }).join('');
     if(dayTickets.length>3){
       eventsHtml+=`<div class="calendar-event" style="background:var(--text-muted)">+${dayTickets.length-3} more</div>`;
     }
-    
-    grid.innerHTML+=`
-      <div class="calendar-day ${isToday?'today':''}" onclick="selectCalendarDay('${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}')">
+
+    cells.push(`
+      <div class="calendar-day ${isToday?'today':''}" onclick="selectCalendarDay('${dateKey}')">
         <div class="calendar-day-number">${day}</div>
         ${eventsHtml}
       </div>
-    `;
+    `);
   }
-  
+
   // Next month days
   let totalCells=firstDay+daysInMonth;
   let remainingCells=totalCells%7===0?0:(7-totalCells%7);
   for(let day=1;day<=remainingCells;day++){
-    grid.innerHTML+=`<div class="calendar-day other-month"><div class="calendar-day-number">${day}</div></div>`;
+    cells.push(`<div class="calendar-day other-month"><div class="calendar-day-number">${day}</div></div>`);
   }
+
+  grid.innerHTML=cells.join('');
 }
 
 function getTicketsForDate(date){
@@ -5235,25 +5220,23 @@ function selectCalendarDay(dateStr){
   let dayTickets=getTicketsForDate(date);
   
   let eventsDiv=document.getElementById('calendar-events');
-  eventsDiv.innerHTML=`<h4>${date.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</h4>`;
-  
+  let html=`<h4>${date.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</h4>`;
   if(dayTickets.length===0){
-    eventsDiv.innerHTML+='<p style="color:var(--text-muted)">No scheduled services for this date</p>';
+    html+='<p style="color:var(--text-muted)">No scheduled services for this date</p>';
   } else {
-    dayTickets.forEach(t=>{
-      eventsDiv.innerHTML+=`
-        <div class="activity-item">
-          <strong>${t.ticketNumber}: ${t.lift.client}</strong><br>
-          <small>🏢 ${t.lift.lift} | ${t.jobType||'Service'}</small><br>
-          <small>👷 ${t.tech||'Unassigned'}</small><br>
-          <small>Status: <span class="status-pill ${t.status.toLowerCase().replace(' ','-')}">${t.status}</span></small>
-          <div style="margin-top:8px">
-            <button onclick="openEditTicketModal(${tickets.findIndex(ticket=>ticket.ticketNumber===t.ticketNumber)})" class="btn-small btn-secondary" style="width:auto">Edit Ticket</button>
-          </div>
+    html+=dayTickets.map(t=>`
+      <div class="activity-item">
+        <strong>${t.ticketNumber}: ${t.lift.client}</strong><br>
+        <small>🏢 ${t.lift.lift} | ${t.jobType||'Service'}</small><br>
+        <small>👷 ${t.tech||'Unassigned'}</small><br>
+        <small>Status: <span class="status-pill ${t.status.toLowerCase().replace(' ','-')}">${t.status}</span></small>
+        <div style="margin-top:8px">
+          <button onclick="openEditTicketModal(${tickets.findIndex(ticket=>ticket.ticketNumber===t.ticketNumber)})" class="btn-small btn-secondary" style="width:auto">Edit Ticket</button>
         </div>
-      `;
-    });
+      </div>
+    `).join('');
   }
+  eventsDiv.innerHTML=html;
 }
 
 function changeMonth(direction){
@@ -5279,24 +5262,25 @@ function renderFaults(){
 }
 
 function updateFaultStats(){
-  let faultyTickets=tickets.filter(t=>t.isFaulty);
-  let activeFaults=faultyTickets.filter(t=>t.status!=='Done');
-  
-  // Count by priority
-  let urgent=activeFaults.filter(t=>t.priority==='Urgent').length;
-  let high=activeFaults.filter(t=>t.priority==='High').length;
-  let normal=activeFaults.filter(t=>t.priority==='Normal').length;
-  
-  // Resolved this month
+  let urgent=0,high=0,normal=0,resolved=0;
+  let activeFaults=[];
   let thisMonth=new Date().getMonth();
   let thisYear=new Date().getFullYear();
-  let resolved=faultyTickets.filter(t=>{
-    if(t.status==='Done' && t.completed){
-      let d=new Date(t.completed);
-      return d.getMonth()===thisMonth && d.getFullYear()===thisYear;
+  tickets.forEach(t=>{
+    if(!t.isFaulty) return;
+    if(t.status==='Done'){
+      if(t.completed){
+        let d=new Date(t.completed);
+        if(d.getMonth()===thisMonth && d.getFullYear()===thisYear) resolved++;
+      }
+    } else {
+      activeFaults.push(t);
+      let p=t.priority||'Normal';
+      if(p==='Urgent') urgent++;
+      else if(p==='High') high++;
+      else normal++;
     }
-    return false;
-  }).length;
+  });
   
   document.getElementById('fault-urgent-count').textContent=urgent;
   document.getElementById('fault-high-count').textContent=high;
@@ -5340,20 +5324,18 @@ function renderActiveFaults(){
     return new Date(a.scheduledDate)-new Date(b.scheduledDate);
   });
   
-  list.innerHTML='';
   if(faults.length===0){
     list.innerHTML='<p style="color:var(--text-muted);text-align:center;padding:40px">✅ No active faults matching filters</p>';
     return;
   }
-  
-  faults.forEach(t=>{
+
+  list.innerHTML=faults.map(t=>{
     let ticketIdx=tickets.findIndex(ticket=>ticket.ticketNumber===t.ticketNumber);
     let priority=t.priority||'Normal';
     let priorityClass=priority.toLowerCase();
     let daysOpen=Math.floor((Date.now()-new Date(t.scheduledDate))/(1000*60*60*24));
     let tech=t.tech||'Unassigned';
-    
-    list.innerHTML+=`
+    return `
       <div class="fault-card ${priorityClass}">
         <div class="fault-header">
           <div class="fault-title">🏢 ${t.lift.client}</div>
@@ -5362,7 +5344,7 @@ function renderActiveFaults(){
             ${priority}
           </div>
         </div>
-        
+
         <div class="fault-meta">
           <div class="fault-meta-item">
             <span class="icon">🏢</span>
@@ -5389,14 +5371,14 @@ function renderActiveFaults(){
             <span><strong>Status:</strong> ${t.status}</span>
           </div>
         </div>
-        
+
         ${t.note?`
           <div class="fault-description">
             <strong>⚠️ Fault Description:</strong><br>
             ${t.note}
           </div>
         `:''}
-        
+
         <div class="fault-actions">
           <button onclick="openEditTicketModal(${ticketIdx})" class="btn-secondary">✏️ Edit Details</button>
           <button onclick="markFaultInProgress(${ticketIdx})" class="btn-warning" ${t.status==='In Progress'?'disabled':''}>
@@ -5408,7 +5390,7 @@ function renderActiveFaults(){
         </div>
       </div>
     `;
-  });
+  }).join('');
 }
 
 function renderResolvedFaults(){
@@ -5417,19 +5399,14 @@ function renderResolvedFaults(){
     .sort((a,b)=>new Date(b.completed)-new Date(a.completed))
     .slice(0,10);
   
-  list.innerHTML='';
   if(resolved.length===0){
     list.innerHTML='<p style="color:var(--text-muted);text-align:center;padding:40px">No resolved faults yet</p>';
     return;
   }
-  
-  resolved.forEach(t=>{
+  list.innerHTML=resolved.map(t=>{
     let completedDate=new Date(t.completed).toLocaleDateString();
-    let reportedDate=new Date(t.scheduledDate);
-    let completedDateTime=new Date(t.completed);
-    let resolutionTime=Math.floor((completedDateTime-reportedDate)/(1000*60*60*24));
-    
-    list.innerHTML+=`
+    let resolutionTime=Math.floor((new Date(t.completed)-new Date(t.scheduledDate))/(1000*60*60*24));
+    return `
       <div class="activity-item" style="border-left-color:var(--accent-secondary)">
         <strong>✅ ${t.lift.client} - ${t.lift.lift}</strong><br>
         <small>🎫 ${t.ticketNumber} | 👷 ${t.tech||'N/A'}</small><br>
@@ -5437,14 +5414,13 @@ function renderResolvedFaults(){
         <div class="activity-time">Completed: ${completedDate}</div>
       </div>
     `;
-  });
+  }).join('');
 }
 
+let _faultTimelineChart=null;
 function renderFaultTimeline(){
   let ctx=document.getElementById('faultTimelineChart');
   if(!ctx || typeof Chart==='undefined') return;
-  let existing=Chart.getChart(ctx);
-  if(existing) existing.destroy();
   
   // Get last 6 months of fault data
   let months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -5474,48 +5450,33 @@ function renderFaultTimeline(){
     }
   });
   
-  new Chart(ctx,{
-    type:'line',
-    data:{
-      labels:labels,
-      datasets:[
-        {
-          label:'Faults Reported',
-          data:reported,
-          borderColor:'#ef4444',
-          backgroundColor:'rgba(239, 68, 68, 0.1)',
-          tension:0.4
-        },
-        {
-          label:'Faults Resolved',
-          data:resolved,
-          borderColor:'#10b981',
-          backgroundColor:'rgba(16, 185, 129, 0.1)',
-          tension:0.4
-        }
-      ]
-    },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      plugins:{
-        legend:{
-          labels:{color:'#f1f5f9'}
-        }
+  if(_faultTimelineChart){
+    _faultTimelineChart.data.labels=labels;
+    _faultTimelineChart.data.datasets[0].data=reported;
+    _faultTimelineChart.data.datasets[1].data=resolved;
+    _faultTimelineChart.update('none');
+  } else {
+    _faultTimelineChart=new Chart(ctx,{
+      type:'line',
+      data:{
+        labels:labels,
+        datasets:[
+          {label:'Faults Reported',data:reported,borderColor:'#ef4444',backgroundColor:'rgba(239, 68, 68, 0.1)',tension:0.4},
+          {label:'Faults Resolved',data:resolved,borderColor:'#10b981',backgroundColor:'rgba(16, 185, 129, 0.1)',tension:0.4}
+        ]
       },
-      scales:{
-        y:{
-          beginAtZero:true,
-          ticks:{color:'#cbd5e1'},
-          grid:{color:'#334155'}
-        },
-        x:{
-          ticks:{color:'#cbd5e1'},
-          grid:{color:'#334155'}
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        animation:false,
+        plugins:{legend:{labels:{color:'#f1f5f9'}}},
+        scales:{
+          y:{beginAtZero:true,ticks:{color:'#cbd5e1'},grid:{color:'#334155'}},
+          x:{ticks:{color:'#cbd5e1'},grid:{color:'#334155'}}
         }
       }
-    }
-  });
+    });
+  }
 }
 
 function filterFaults(){
