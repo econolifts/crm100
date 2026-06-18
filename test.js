@@ -109,14 +109,18 @@ function log(status, name, detail = '') {
   if (hasTicketForm) log('PASS', 'Ticket form fields present');
   else log('FAIL', 'Ticket form fields missing');
 
-  // Try to create a ticket (uses demo techs)
+  // Ensure dropdowns are populated then create a ticket
+  await page.evaluate(() => populateTicketDropdowns('ticketLift','ticketTech'));
   const ticketResult = await page.evaluate(() => {
     const liftSel = document.getElementById('ticketLift');
     const techSel = document.getElementById('ticketTech');
     const dateFld = document.getElementById('ticketDate');
-    if (!liftSel.options.length || !techSel.options.length) return { skipped: 'No options in dropdowns' };
-    liftSel.value = liftSel.options[0].value;
-    techSel.value = techSel.options[0].value;
+    // Skip the empty placeholder option (index 0), select first real lift/tech
+    const liftOpt = Array.from(liftSel.options).find(o => o.value !== '');
+    const techOpt = Array.from(techSel.options).find(o => o.value !== '');
+    if (!liftOpt || !techOpt) return { skipped: 'No options in dropdowns' };
+    liftSel.value = liftOpt.value;
+    techSel.value = techOpt.value;
     dateFld.value = '2026-06-01';
     document.getElementById('ticketNote').value = 'Test service note';
     return { skipped: false };
@@ -242,13 +246,40 @@ function log(status, name, detail = '') {
 
   // ── 10. Admin password field type ────────────────────────
   console.log('\n=== 10. Admin Password Field ===');
-  await clickTab('techs');
+  await clickTab('admins');
   const adminPassType = await page.evaluate(() =>
     document.getElementById('adminPass')?.getAttribute('type') || 'not found'
   );
   if (adminPassType === 'password') log('PASS', 'Admin password field type=password (masked)');
-  else if (adminPassType === 'not found') log('WARN', '#adminPass not in DOM on this tab');
+  else if (adminPassType === 'not found') log('WARN', '#adminPass not in DOM');
   else log('FAIL', `Admin password field is type="${adminPassType}" — password exposed`);
+
+  // ── 10b. Toast notification system ───────────────────────
+  console.log('\n=== 10b. Toast System ===');
+  await page.evaluate(() => showToast('Test toast','success'));
+  await page.waitForTimeout(300);
+  const toastVisible = await page.evaluate(() => document.querySelectorAll('.toast').length > 0);
+  if (toastVisible) log('PASS', 'showToast() renders a toast notification');
+  else log('FAIL', 'showToast() did not render a toast');
+
+  // ── 10c. Delete context dialog includes lift name ─────────
+  console.log('\n=== 10c. Delete Confirmation Context ===');
+  const deleteConfirmText = await page.evaluate(() => {
+    // deleteLift should embed lift details in confirm text
+    const src = deleteLift.toString();
+    return src.includes('l.client') && src.includes('l.lift');
+  });
+  if (deleteConfirmText) log('PASS', 'deleteLift() confirm shows client/lift details');
+  else log('FAIL', 'deleteLift() confirm missing context');
+
+  // ── 10d. createTicket validation specifics ────────────────
+  console.log('\n=== 10d. Ticket Validation ===');
+  const ticketValidation = await page.evaluate(() => {
+    const src = createTicket.toString();
+    return src.includes('Please select a lift') && src.includes('Please select a technician');
+  });
+  if (ticketValidation) log('PASS', 'createTicket() has specific validation messages');
+  else log('FAIL', 'createTicket() missing specific validation messages');
 
   // ── 11. Kanban tab ───────────────────────────────────────
   console.log('\n=== 11. Kanban Tab ===');

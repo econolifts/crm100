@@ -1224,6 +1224,21 @@ canvas {
   margin-top: 5px;
 }
 </style>
+
+<style>
+/* Toast notification system */
+#toast-container{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:#1e293b;color:#f1f5f9;padding:12px 18px;border-radius:10px;font-size:14px;box-shadow:0 4px 20px rgba(0,0,0,.4);display:flex;align-items:center;gap:10px;pointer-events:all;max-width:340px;animation:toastIn .2s ease;border-left:4px solid #3b82f6}
+.toast.success{border-left-color:#10b981}
+.toast.error{border-left-color:#ef4444}
+.toast.warning{border-left-color:#f59e0b}
+.toast-close{margin-left:auto;cursor:pointer;opacity:.6;font-size:16px;line-height:1;padding:0 2px}
+.toast-close:hover{opacity:1}
+.toast.fade-out{animation:toastOut .3s ease forwards}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+@keyframes toastOut{to{opacity:0;transform:translateX(20px)}}
+@media(max-width:768px){.btn-small{min-height:40px;padding:10px 14px;font-size:13px}#toast-container{bottom:12px;right:12px;left:12px}.toast{max-width:100%}}
+</style>
 </head>
 <body>
 
@@ -1600,7 +1615,7 @@ canvas {
 <h3>➕ Add Admin</h3>
 <input id="adminName" placeholder="Full Name">
 <input id="adminUsername" placeholder="Username">
-<input id="adminPass" placeholder="Password">
+<input type="password" id="adminPass" placeholder="Password" autocomplete="new-password">
 <button onclick="addAdmin()" class="btn-success">Add Admin</button>
 </div>
 <div class="card">
@@ -2564,12 +2579,12 @@ function showTechTab(tab,ev){
 }
 
 function addLift(){
-  let client=document.getElementById('client').value;
-  let address=document.getElementById('clientAddress').value;
-  let phone=document.getElementById('clientPhone').value;
-  let lift=document.getElementById('lift').value;
+  let client=document.getElementById('client').value.trim();
+  let address=document.getElementById('clientAddress').value.trim();
+  let phone=document.getElementById('clientPhone').value.trim();
+  let lift=document.getElementById('lift').value.trim();
   let frequency=parseInt(document.getElementById('frequency').value);
-  
+
   if(!client||!address||!lift){
     alert('Please fill in client, address, and lift ID');
     return;
@@ -2615,7 +2630,7 @@ function addLift(){
     await save();
     scheduleRenderAdmin();
     hideLoader();
-    alert('Lift added successfully!');
+    showToast('✅ Lift added successfully!','success');
   }, 100);
 }
 
@@ -2759,7 +2774,7 @@ function importCSV(){
       renderAdmin();
       fileInput.value='';
       await save();
-      alert(`Pastel Import Complete!\n\n✅ New clients added: ${imported}\n🔄 Existing clients updated: ${updated}\n📋 Total processed: ${customers.length}\n\n💡 Tip: Edit each lift to set the correct Lift ID and service frequency.`);
+      showToast(`✅ Import complete: ${imported} added, ${updated} updated of ${customers.length} records`,'success',6000);
       return;
     }
 
@@ -2929,10 +2944,12 @@ function generateLiftId(name,usedIds){
 
 
 async function deleteLift(i){
-  if(confirm('Delete this lift?')){
+  let l=lifts[i];
+  if(confirm(`❌ DELETE LIFT?\n\nClient: ${l.client}\nLift ID: ${l.lift}\nAddress: ${l.address}\n\nThis cannot be undone.`)){
     lifts.splice(i,1);
     await save();
     scheduleRenderAdmin();
+    showToast('Lift deleted','info');
   }
 }
 
@@ -2971,7 +2988,7 @@ async function updateLift(){
   await save();
   scheduleRenderAdmin();
   closeEditLiftModal();
-  alert('Lift updated!');
+  showToast('✅ Lift updated!','success');
 }
 
 function addTech(){
@@ -2998,17 +3015,23 @@ function addTech(){
     return;
   }
   
-  // Check for duplicate username
-  if(techs.find(t=>t.username.toLowerCase()===username)){
-    alert(`❌ Username "${username}" already exists!\n\nPlease choose a different username.\n\nExisting usernames:\n${techs.map(t=>t.username).join(', ')}`);
+  // Validate username format BEFORE duplicate check
+  if(!/^[a-z0-9_]+$/.test(username)){
+    alert('❌ Username can only contain lowercase letters, numbers, and underscores (no spaces).');
     document.getElementById('techUsername').focus();
     return;
   }
-  
-  // Validate username format (no spaces, alphanumeric)
-  if(!/^[a-z0-9_]+$/.test(username)){
-    alert('❌ Username can only contain:\n\n• Lowercase letters (a-z)\n• Numbers (0-9)\n• Underscores (_)\n\nNo spaces or special characters allowed.');
+
+  // Check for duplicate username
+  if(techs.find(t=>t.username.toLowerCase()===username)){
+    alert(`❌ Username "${username}" already exists. Please choose a different one.`);
     document.getElementById('techUsername').focus();
+    return;
+  }
+
+  if(pass.length<4){
+    alert('❌ Password must be at least 4 characters.');
+    document.getElementById('techPass').focus();
     return;
   }
   
@@ -3034,7 +3057,7 @@ function addTech(){
     hideLoader();
 
     // Success message with credentials
-    alert(`✅ Technician added successfully!\n\n👤 Name: ${name}\n🔑 Username: ${username}\n🔐 Password: ${pass}\n\n⚠️ Save these credentials!\nThe technician will need them to login.`);
+    showToast(`✅ Tech added: ${name} (login: ${username} / ${pass}) — save these!`,'success',7000);
 
     // Focus back to name field for next entry
     document.getElementById('techName').focus();
@@ -3057,8 +3080,16 @@ function createTicket(){
   let note=document.getElementById('ticketNote').value;
   let photoFiles=document.getElementById('ticketPhotos').files;
   
-  if(isNaN(liftIdx)||isNaN(techIdx)||!scheduledDate){
-    alert('Please fill all required fields');
+  if(isNaN(liftIdx)||liftIdx<0){
+    alert('❌ Please select a lift from the dropdown.\n\nIf the list is empty, make sure lifts have been added first.');
+    return;
+  }
+  if(isNaN(techIdx)||techIdx<0){
+    alert('❌ Please select a technician.');
+    return;
+  }
+  if(!scheduledDate){
+    alert('❌ Please enter a scheduled date.');
     return;
   }
   
@@ -3109,16 +3140,18 @@ function createTicket(){
     document.getElementById('ticketDate').value='';
     document.getElementById('ticketNote').value='';
     document.getElementById('ticketPhotos').value='';
-    alert('Ticket created: '+ticketNumber);
+    showToast('✅ Ticket '+ticketNumber+' created!','success');
   });
 }
 
 async function deleteTicket(i){
-  if(confirm('Delete this ticket?')){
+  let t=tickets[i];
+  if(confirm(`❌ DELETE TICKET?\n\nTicket: ${t.ticketNumber}\nClient: ${t.lift.client}\nLift: ${t.lift.lift}\nTech: ${t.tech||'Unassigned'}\n\nThis cannot be undone.`)){
     tickets.splice(i,1);
     await save();
     scheduleRenderAdmin();
     renderTech();
+    showToast('Ticket deleted','info');
   }
 }
 
@@ -3157,7 +3190,7 @@ async function updateTicket(){
   scheduleRenderAdmin();
   renderTech();
   closeEditTicketModal();
-  alert('Ticket updated!');
+  showToast('✅ Ticket updated!','success');
 }
 
 function openFaultReportModal(liftIdx){
@@ -3253,7 +3286,7 @@ async function submitFaultReport(){
   
   closeFaultReportModal();
   
-  alert(`Fault ticket ${ticketNumber} created!\n\nPriority: ${priority}\nAssigned to: ${techs[techIdx].name}`);
+  showToast(`✅ Fault ticket ${ticketNumber} created — Priority: ${priority}, Assigned: ${techs[techIdx].name}`,'success',5000);
 }
 
 function getNextTicketNumber(){
@@ -3268,16 +3301,8 @@ function getNextTicketNumber(){
 function populateTicketDropdowns(liftSelectId,techSelectId){
   let liftSelect=document.getElementById(liftSelectId);
   let techSelect=document.getElementById(techSelectId);
-  
-  liftSelect.innerHTML='<option value="">Select Lift</option>';
-  lifts.forEach((l,i)=>{
-    liftSelect.innerHTML+=`<option value="${i}">${l.client} - ${l.lift}</option>`;
-  });
-  
-  techSelect.innerHTML='<option value="">Select Technician</option>';
-  techs.forEach((t,i)=>{
-    techSelect.innerHTML+=`<option value="${i}">${t.name}</option>`;
-  });
+  liftSelect.innerHTML='<option value="">Select Lift</option>'+lifts.map((l,i)=>`<option value="${i}">${escAttr(l.client)} - ${escAttr(l.lift)}</option>`).join('');
+  techSelect.innerHTML='<option value="">Select Technician</option>'+techs.map((t,i)=>`<option value="${i}">${escAttr(t.name)}</option>`).join('');
 }
 
 // Performance optimization - debounced rendering
@@ -3824,7 +3849,7 @@ async function completeJob(){
 
     if(markIncomplete){
       ticket.isIncomplete=true;
-      alert('Job marked as INCOMPLETE - you can return to complete it later');
+      showToast('⚠️ Job marked incomplete — you can return to finish it later','warning');
     } else {
       ticket.status='Done';
       ticket.completed=new Date().toISOString();
@@ -4235,7 +4260,7 @@ async function addAdmin(){
   document.getElementById('adminName').value='';
   document.getElementById('adminUsername').value='';
   document.getElementById('adminPass').value='';
-  alert('Admin added successfully!');
+  showToast('✅ Admin added successfully!','success');
 }
 
 async function deleteAdmin(i){
@@ -4243,10 +4268,16 @@ async function deleteAdmin(i){
     alert('Cannot delete the last admin!');
     return;
   }
-  if(confirm('Delete this admin?')){
+  if(admins[i].username===currentAdmin){
+    alert('❌ Cannot delete your own account while logged in.');
+    return;
+  }
+  let a=admins[i];
+  if(confirm(`Delete admin "${a.name||a.username}"? This cannot be undone.`)){
     admins.splice(i,1);
     await save();
     scheduleRenderAdmin();
+    showToast('Admin deleted','info');
   }
 }
 
@@ -4286,7 +4317,7 @@ async function changeAdminPassword(){
   document.getElementById('currentPassword').value='';
   document.getElementById('newPassword').value='';
   document.getElementById('confirmPassword').value='';
-  alert('Password changed successfully!');
+  showToast('✅ Password changed successfully!','success');
 }
 
 function saveWhatsAppSettings(){
@@ -4380,7 +4411,7 @@ function exportData(){
   link.click();
   URL.revokeObjectURL(url);
   
-  alert('✅ Data exported successfully!\n\nFile saved to your Downloads folder.\n\nKeep this file safe - you can use it to restore all your data.');
+  showToast('✅ Data exported to your Downloads folder','success',5000);
 }
 
 function importData(input){
@@ -4415,7 +4446,7 @@ function importData(input){
 
       await save();
 
-      alert(`✅ Data imported successfully!\n\nRestored:\n- ${lifts.length} lifts\n- ${techs.length} technicians\n- ${tickets.length} tickets\n- ${liftDocuments.length} documents\n\nPage will refresh now.`);
+      showToast(`✅ Restored: ${lifts.length} lifts, ${techs.length} techs, ${tickets.length} tickets — refreshing...`,'success',4000);
 
       location.reload();
     } catch(err){
@@ -4464,7 +4495,7 @@ async function changeTechPassword(){
   document.getElementById('techCurrentPassword').value='';
   document.getElementById('techNewPassword').value='';
   document.getElementById('techConfirmPassword').value='';
-  alert('Password changed successfully!');
+  showToast('✅ Password changed successfully!','success');
 }
 
 // Inspection Management Functions
@@ -4680,7 +4711,7 @@ async function uploadDocument(){
     await save();
     hideLoader();
     openDocumentsModal(currentDocumentLiftId);
-    alert('Document uploaded successfully!');
+    showToast('✅ Document uploaded!','success');
   } catch(err) {
     hideLoader();
     alert('❌ Upload failed: '+err.message);
@@ -4730,7 +4761,7 @@ async function deleteDocument(docIndex){
     liftDocuments.splice(globalIndex,1);
     await save();
     openDocumentsModal(currentDocumentLiftId);
-    alert('Document deleted');
+    showToast('Document deleted','info');
   }
 }
 
@@ -4814,7 +4845,7 @@ async function recordInspection(liftIdx){
 
   await save();
   renderInspections();
-  alert(`Inspection recorded for ${lift.lift}. Next due: ${nextDue.toLocaleDateString()}`);
+  showToast(`✅ Inspection recorded for ${lift.lift}. Next due: ${nextDue.toLocaleDateString()}`,'success',5000);
 }
 
 // Dashboard Functions - Zoho/Monday Style
@@ -5488,7 +5519,7 @@ async function markFaultInProgress(ticketIdx){
   await save();
   renderFaults();
   scheduleRenderAdmin();
-  alert('Fault marked as In Progress');
+  showToast('🔄 Fault marked as In Progress','info');
 }
 
 async function resolveFault(ticketIdx){
@@ -5508,7 +5539,7 @@ async function resolveFault(ticketIdx){
   await save();
   renderFaults();
   scheduleRenderAdmin();
-  alert('✅ Fault resolved successfully!');
+  showToast('✅ Fault resolved!','success');
 }
 
 // ── App Startup (Firebase) ──────────────────────────────────────
@@ -5657,6 +5688,23 @@ window.onload = async function() {
     }
   }
 }; // end window.onload
+</script>
+
+<div id="toast-container"></div>
+<script>
+// ── Toast notification system ─────────────────────────────────────────────────
+function showToast(msg, type='info', duration=3500){
+  const c=document.getElementById('toast-container');
+  const t=document.createElement('div');
+  t.className='toast '+(type==='success'?'success':type==='error'?'error':type==='warning'?'warning':'');
+  t.innerHTML=`<span>${msg}</span><span class="toast-close" onclick="this.parentElement.remove()">✕</span>`;
+  c.appendChild(t);
+  const dismiss=()=>{
+    t.classList.add('fade-out');
+    setTimeout(()=>t.remove(),320);
+  };
+  setTimeout(dismiss,duration);
+}
 </script>
 </body>
 </html>
