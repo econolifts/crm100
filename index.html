@@ -1291,7 +1291,10 @@ canvas {
 <option value="tech">Technician</option>
 </select>
 <input type="text" id="username" placeholder="Username" autocomplete="username">
-<input type="password" id="password" placeholder="Password" autocomplete="current-password">
+<div style="position:relative;display:flex;align-items:center">
+  <input type="password" id="password" placeholder="Password" autocomplete="current-password" style="padding-right:44px;flex:1">
+  <button type="button" onclick="togglePasswordVisibility('password',this)" title="Show/hide password" style="position:absolute;right:0;height:100%;width:42px;background:none;border:none;cursor:pointer;font-size:18px;color:var(--text-muted);padding:0;display:flex;align-items:center;justify-content:center">👁</button>
+</div>
 <label style="display:block;margin:10px 0;text-align:left">
 <input type="checkbox" id="rememberMe"> Remember me
 </label>
@@ -3321,6 +3324,15 @@ function scheduleRenderAdmin(){
 }
 
 function escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function togglePasswordVisibility(inputId, btn){
+  const inp=document.getElementById(inputId);
+  if(!inp) return;
+  const show=inp.type==='password';
+  inp.type=show?'text':'password';
+  btn.textContent=show?'🙈':'👁';
+  btn.title=show?'Hide password':'Show password';
+}
 
 let _liftCardPage = 0;
 const LIFTS_PER_PAGE = 50;
