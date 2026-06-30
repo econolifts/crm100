@@ -26,7 +26,7 @@ async function runImport(page, csvContent, inputId = 'csvFileInput', fn = 'impor
 }
 
 (async () => {
-  const browser = await chromium.launch({ args: ['--no-sandbox', '--ignore-certificate-errors'] });
+  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--ignore-certificate-errors', '--no-proxy-server'] });
   const ctx = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await ctx.newPage();
   await vendorRoute(page);
