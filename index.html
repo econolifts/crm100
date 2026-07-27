@@ -1544,6 +1544,13 @@ canvas {
 <div id="unpaidImportResult" style="margin-top:8px;font-size:13px"></div>
 </div>
 <div class="card">
+<h3>📅 Import Service Schedule from Pastel Sales Report</h3>
+<p style="font-size:13px;color:#666;margin-bottom:8px">Upload a Pastel/Sage <strong>Sales by Item Report</strong> (CSV). The most recent invoice date per client will be set as their <em>Last Service</em> date. No financial data is imported.</p>
+<input type="file" id="salesReportFileInput" accept=".csv" style="padding:8px">
+<button onclick="importSalesSchedule()" class="btn-warning">Import Service Dates</button>
+<div id="salesImportResult" style="margin-top:8px;font-size:13px"></div>
+</div>
+<div class="card">
 <h3>📋 All Lifts</h3>
 <input type="text" id="liftSearch" placeholder="🔍 Search lifts by client, address, phone, or lift ID..." oninput="filterLiftTable()" style="max-width:100%;margin-bottom:10px">
 <div id="liftSearchCount" style="font-size:12px;color:var(--text-muted);margin-bottom:10px"></div>
@@ -2880,6 +2887,76 @@ function parseCSVLine(line){
 }
 
 // Parse a Pastel/Sage "Customer Listing Report" (multi-row-per-customer format)
+async function importSalesSchedule(){
+  const fileInput=document.getElementById('salesReportFileInput');
+  const resultDiv=document.getElementById('salesImportResult');
+  const file=fileInput.files[0];
+  if(!file){resultDiv.textContent='⚠️ Please select a CSV file first.';return;}
+
+  const text=await file.text();
+  const lines=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+
+  // Detect Pastel Sales by Item Report: starts with sep=, and has Date/Document No./Customer header
+  const isSalesReport=lines[0].trim().toLowerCase()==='sep=,'&&
+    lines.length>2&&parseCSVLine(lines[1]).some(c=>c.trim().toLowerCase()==='date')&&
+    parseCSVLine(lines[1]).some(c=>c.trim().toLowerCase()==='customer');
+  if(!isSalesReport){
+    resultDiv.innerHTML='<span style="color:#ef4444">❌ File not recognised as a Pastel Sales by Item Report.</span>';
+    return;
+  }
+
+  const header=parseCSVLine(lines[1]).map(c=>c.trim().toLowerCase());
+  const dateCol=header.indexOf('date');
+  const custCol=header.indexOf('customer');
+  const docCol=header.findIndex(c=>c.includes('document'));
+
+  // Build map: customer name → latest service date (timestamp)
+  const latestDate={};
+  for(let i=2;i<lines.length;i++){
+    const row=parseCSVLine(lines[i]);
+    if(!row||row.length<3) continue;
+    const doc=(row[docCol]||'').trim();
+    // Skip credit notes, totals, category header rows (empty customer), grand total
+    if(!doc||doc.startsWith('CRN')) continue;
+    const cust=(row[custCol]||'').trim();
+    if(!cust||cust.toLowerCase().startsWith('total')||cust.toLowerCase().startsWith('grand')) continue;
+    const dateStr=(row[dateCol]||'').trim(); // "dd/mm/yyyy"
+    const parts=dateStr.split('/');
+    if(parts.length!==3) continue;
+    const ts=new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).getTime();
+    if(isNaN(ts)) continue;
+    if(!latestDate[cust]||ts>latestDate[cust]) latestDate[cust]=ts;
+  }
+
+  const customers=Object.keys(latestDate);
+  if(!customers.length){
+    resultDiv.innerHTML='<span style="color:#ef4444">❌ No valid service rows found.</span>';
+    return;
+  }
+
+  let updated=0,notFound=[];
+  for(const custName of customers){
+    const idx=lifts.findIndex(l=>l.client.toLowerCase()===custName.toLowerCase());
+    if(idx>=0){
+      lifts[idx].lastService=latestDate[custName];
+      updated++;
+    } else {
+      notFound.push(custName);
+    }
+  }
+
+  renderAdmin();
+  fileInput.value='';
+  await save();
+
+  let html=`<span style="color:#22c55e">✅ Updated <strong>${updated}</strong> lift(s) with latest service date.</span>`;
+  if(notFound.length){
+    html+=`<br><span style="color:#f59e0b">⚠️ ${notFound.length} client(s) not matched to any lift:</span>`;
+    html+=`<ul style="margin:4px 0 0 16px;font-size:12px;color:var(--text-muted)">${notFound.map(n=>`<li>${n}</li>`).join('')}</ul>`;
+  }
+  resultDiv.innerHTML=html;
+}
+
 function parsePastelCustomers(lines){
   let customers=[];
   let i=0;
