@@ -1317,6 +1317,7 @@ canvas {
   Developed by <strong style="color:var(--accent-primary)">Mari-Louise Uys</strong>
 </div>
 
+<span class="reset-link" onclick="resetAdminPassword()" style="display:block;margin-bottom:6px">🔑 Forgot Admin Password (resets login only, keeps all data)</span>
 <span class="reset-link" onclick="resetData()">🔄 Reset All Data (if having issues)</span>
 </div>
 
@@ -2279,6 +2280,15 @@ function initializeDemoData(){
   tickets=[];
   // Note: caller should await save() after calling initializeDemoData()
   alert('App initialized! Please log in with credentials provided by your administrator.\n\nIMPORTANT: Change default passwords after first login via Settings.');
+}
+
+async function resetAdminPassword(){
+  if(confirm('🔑 This will reset the admin username to "admin" and password to "admin123".\n\nAll your lifts, tickets, and technicians are kept — only the admin login is reset.\n\nContinue?')){
+    refreshData();
+    admins=[{username:'admin',pass:'admin123',name:'Main Admin'}];
+    await save();
+    alert('✅ Admin password reset!\n\nUsername: admin\nPassword: admin123\n\nPlease log in now and change your password in Settings.');
+  }
 }
 
 async function resetData(){
