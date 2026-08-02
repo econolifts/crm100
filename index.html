@@ -416,6 +416,206 @@ textarea {
   padding: 5px 8px;
 }
 
+/* Client Cards */
+.client-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.client-card-item {
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  transition: var(--transition);
+}
+
+.client-card-item:hover {
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow);
+}
+
+.client-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.client-card-header strong {
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.client-card-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.client-card-details span {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.client-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.client-lift-badge {
+  display: inline-block;
+  background: var(--accent-primary);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Technician mobile-optimized styles */
+.tech-summary-bar {
+  background: linear-gradient(135deg, #1e3a5f, #1e293b);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin: 0 0 16px 0;
+  border: 1px solid #334155;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: nowrap;
+}
+.tech-summary-stat {
+  text-align: center;
+  flex: 1;
+  padding: 0 8px;
+  border-right: 1px solid #334155;
+}
+.tech-summary-stat:last-child { border-right: none; }
+.tech-summary-stat .stat-val {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--accent-primary);
+  line-height: 1;
+}
+.tech-summary-stat .stat-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+.tech-job-card {
+  background: var(--bg-secondary);
+  border-radius: 14px;
+  padding: 18px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 14px;
+}
+.tech-job-card.overdue-card { border-left: 5px solid #ef4444; }
+.tech-job-card.today-card   { border-left: 5px solid #10b981; }
+.tech-job-card.inprogress-card { border-left: 5px solid #f59e0b; }
+.tech-job-title {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.tech-job-lift-id {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.tech-job-address {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+.tech-job-phone {
+  font-size: 16px;
+  font-weight: 600;
+  color: #34d399;
+  margin-bottom: 12px;
+}
+.tech-status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  margin-bottom: 10px;
+}
+.tech-job-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+.tech-btn {
+  padding: 14px 10px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 52px;
+}
+.tech-btn-maps     { background: linear-gradient(135deg,#3b82f6,#2563eb); color:#fff; }
+.tech-btn-call     { background: linear-gradient(135deg,#10b981,#059669); color:#fff; }
+.tech-btn-progress { background: linear-gradient(135deg,#f59e0b,#d97706); color:#fff; grid-column:1/-1; }
+.tech-btn-complete { background: linear-gradient(135deg,#16a34a,#15803d); color:#fff; grid-column:1/-1; font-size:17px; padding:18px; }
+.tech-btn-docs     { background: linear-gradient(135deg,#7c3aed,#6d28d9); color:#fff; grid-column:1/-1; }
+.tech-history-toggle {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 10px;
+  text-align: left;
+}
+.tech-history-content { display: none; margin-top: 10px; }
+
+/* Service Contracts */
+.contract-card {
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 12px;
+  transition: var(--transition);
+}
+.contract-card:hover { border-color: var(--accent-primary); box-shadow: var(--shadow); }
+.contract-card.active-contract  { border-left: 4px solid #10b981; }
+.contract-card.expiring-contract{ border-left: 4px solid #f59e0b; }
+.contract-card.expired-contract { border-left: 4px solid #ef4444; }
+.contract-status-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 /* Map Link */
 .map-link {
   display: inline-block;
@@ -1283,12 +1483,15 @@ canvas {
 <button onclick="login()">Login</button>
 <p id="msg" style="color:red;text-align:center"></p>
 
-<div class="help-text">
-  <strong>📝 Default Logins:</strong><br>
-  <strong>Admin:</strong> Username: <code>admin</code> | Password: <code>admin123</code><br>
-  <strong>Tech 1:</strong> Username: <code>john</code> | Password: <code>tech1</code><br>
-  <strong>Tech 2:</strong> Username: <code>sarah</code> | Password: <code>tech2</code><br>
-  <strong>Tech 3:</strong> Username: <code>ivan</code> | Password: <code>1986</code>
+<div style="margin-top:12px;text-align:center">
+  <button onclick="document.getElementById('defaultLogins').style.display=document.getElementById('defaultLogins').style.display==='block'?'none':'block'" style="background:none;border:1px solid var(--border-color);color:var(--text-muted);padding:6px 16px;border-radius:8px;font-size:12px;cursor:pointer">Need login help?</button>
+  <div id="defaultLogins" style="display:none" class="help-text" style="margin-top:8px">
+    <strong>📝 Default Logins:</strong><br>
+    <strong>Admin:</strong> Username: <code>admin</code> | Password: <code>admin123</code><br>
+    <strong>Tech 1:</strong> Username: <code>john</code> | Password: <code>tech1</code><br>
+    <strong>Tech 2:</strong> Username: <code>sarah</code> | Password: <code>tech2</code><br>
+    <strong>Tech 3:</strong> Username: <code>ivan</code> | Password: <code>1986</code>
+  </div>
 </div>
 
 <div style="text-align:center;margin-top:15px;padding:10px;background:#f8f9fa;border-radius:6px">
@@ -1356,6 +1559,8 @@ canvas {
 <button class="tab" onclick="showTab('tickets',event)">🎫 Tickets</button>
 <button class="tab" onclick="showTab('reports',event)">📈 Reports</button>
 <button class="tab" onclick="showTab('reminders',event)">⏰ Reminders <span id="reminderCount" class="reminder-badge" style="display:none">0</span></button>
+<button class="tab" onclick="showTab('clients',event)">👥 Clients</button>
+<button class="tab" onclick="showTab('contracts',event)">📄 Contracts</button>
 <button class="tab" onclick="showTab('admins',event)">👤 Admins</button>
 <button class="tab" onclick="showTab('settings',event)">⚙️ Settings</button>
 </div>
@@ -1511,6 +1716,38 @@ canvas {
 <div id="tech-tracking-content"></div>
 </div>
 
+<!-- Clients Tab -->
+<div id="clients-tab" class="tab-content">
+<div class="card">
+<h2>👥 Client Database</h2>
+<p style="color:var(--text-muted);font-size:14px">Manage all client profiles, contact details and their associated lifts</p>
+</div>
+
+<div class="card">
+<h3>➕ Add New Client</h3>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px">
+<input id="clientDbName" placeholder="Company / Client Name *">
+<input id="clientDbContact" placeholder="Contact Person">
+<input id="clientDbPhone" placeholder="Phone (e.g. 27821234567)">
+<input id="clientDbEmail" placeholder="Email Address">
+<input id="clientDbAddress" placeholder="Physical Address">
+<textarea id="clientDbNotes" placeholder="Notes (optional)" style="resize:vertical;min-height:60px;font-family:inherit;font-size:14px;padding:10px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-tertiary);color:var(--text-primary)"></textarea>
+</div>
+<button onclick="addClient()" class="btn-success" style="margin-top:14px">➕ Add Client</button>
+</div>
+
+<div class="card">
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+<h3 style="margin:0">📋 All Clients</h3>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+<input type="text" id="clientSearch" placeholder="🔍 Search clients..." oninput="renderClients()" style="max-width:260px">
+<span id="clientSearchCount" style="font-size:12px;color:var(--text-muted)"></span>
+</div>
+</div>
+<div id="clientCardsList"></div>
+</div>
+</div>
+
 <div id="lifts-tab" class="tab-content">
 <div class="card">
 <h3>➕ Add Lift</h3>
@@ -1592,6 +1829,70 @@ canvas {
 <tbody id="techTable"></tbody>
 </table>
 </div>
+</div>
+</div>
+
+<!-- Service Contracts Tab -->
+<div id="contracts-tab" class="tab-content">
+<div class="card">
+<h2>📄 Service Contracts</h2>
+<p style="color:var(--text-muted);font-size:14px">Store and track all client service agreements and maintenance contracts</p>
+</div>
+
+<div class="card">
+<h3>➕ Add Contract</h3>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px">
+<input id="contractNumber" placeholder="Contract Number *">
+<input id="contractClient" placeholder="Client Name *" list="contractClientList">
+<datalist id="contractClientList"></datalist>
+<select id="contractType">
+<option value="Full Service">Full Service Contract</option>
+<option value="Basic Maintenance">Basic Maintenance Contract</option>
+<option value="Repair Only">Repair Only</option>
+<option value="Inspection Only">Inspection / Compliance Only</option>
+<option value="Parts & Labour">Parts & Labour</option>
+</select>
+<input type="date" id="contractStart" placeholder="Start Date">
+<input type="date" id="contractEnd" placeholder="End Date">
+<input id="contractVisits" type="number" placeholder="Visits per year (e.g. 4)" min="1">
+<input id="contractFee" placeholder="Monthly / Annual Fee (R)">
+<textarea id="contractCoverage" placeholder="Coverage details — what is included in this contract?" style="resize:vertical;min-height:70px;font-family:inherit;font-size:14px;padding:10px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-tertiary);color:var(--text-primary)"></textarea>
+<textarea id="contractNotes" placeholder="Notes (optional)" style="resize:vertical;min-height:60px;font-family:inherit;font-size:14px;padding:10px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-tertiary);color:var(--text-primary)"></textarea>
+</div>
+<button onclick="addContract()" class="btn-success" style="margin-top:14px">➕ Add Contract</button>
+</div>
+
+<div class="card">
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+<h3 style="margin:0">📋 All Contracts</h3>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+<select id="contractStatusFilter" onchange="renderContracts()" style="max-width:160px">
+<option value="">All Statuses</option>
+<option value="Active">✅ Active</option>
+<option value="Expiring">⚠️ Expiring Soon</option>
+<option value="Expired">❌ Expired</option>
+</select>
+<input type="text" id="contractSearch" placeholder="🔍 Search..." oninput="renderContracts()" style="max-width:220px">
+</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:16px">
+<div class="kpi-card" style="border-left:4px solid #10b981;padding:14px">
+<div class="kpi-icon" style="font-size:20px">✅</div>
+<div class="kpi-value" id="contract-kpi-active" style="font-size:22px">0</div>
+<div class="kpi-label">Active</div>
+</div>
+<div class="kpi-card" style="border-left:4px solid #f59e0b;padding:14px">
+<div class="kpi-icon" style="font-size:20px">⚠️</div>
+<div class="kpi-value" id="contract-kpi-expiring" style="font-size:22px">0</div>
+<div class="kpi-label">Expiring in 60 days</div>
+</div>
+<div class="kpi-card" style="border-left:4px solid #ef4444;padding:14px">
+<div class="kpi-icon" style="font-size:20px">❌</div>
+<div class="kpi-value" id="contract-kpi-expired" style="font-size:22px">0</div>
+<div class="kpi-label">Expired</div>
+</div>
+</div>
+<div id="contractsList"></div>
 </div>
 </div>
 
@@ -1922,24 +2223,24 @@ canvas {
 </div>
 
 <div id="jobs-tab" class="tab-content active">
-<div style="text-align:center;margin:10px 0">
-<button onclick="refreshData();renderTech();" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;padding:10px 24px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;box-shadow:0 2px 8px rgba(59,130,246,0.3)">Refresh Jobs</button>
-<p style="font-size:11px;color:#999;margin:4px 0 0 0">Pull latest tickets from admin</p>
+<div class="tech-summary-bar" id="techSummaryBar"></div>
+<div style="text-align:center;margin:0 0 14px 0">
+<button onclick="renderTech();" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;padding:12px 32px;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 2px 8px rgba(59,130,246,0.3);width:100%">🔄 Refresh Jobs</button>
 </div>
-<div class="card" style="background:#fee2e2;border-left:4px solid #dc2626">
-<h3>⚠️ Quick Fault Report</h3>
-<p style="font-size:13px;margin:5px 0">Report a fault you discovered on any lift:</p>
-<select id="techFaultLiftSelect" style="margin:5px 0">
-<option value="">Select Lift</option>
+<div class="card" style="background:#2d1111;border-left:4px solid #dc2626;padding:16px">
+<h3 style="margin:0 0 8px">⚠️ Report a Fault</h3>
+<p style="font-size:13px;margin:0 0 10px;color:var(--text-secondary)">Found a problem? Report it immediately:</p>
+<select id="techFaultLiftSelect" style="margin-bottom:10px">
+<option value="">-- Select a Lift --</option>
 </select>
-<button onclick="openTechFaultReport()" class="btn-danger">Report Fault</button>
+<button onclick="openTechFaultReport()" class="btn-danger" style="width:100%;padding:14px;font-size:15px;font-weight:700">⚠️ Report Fault Now</button>
 </div>
-<div class="card">
-<h3>📋 Today's Jobs</h3>
+<div class="card" style="padding:16px">
+<h3 style="margin:0 0 14px">📋 Today's Jobs</h3>
 <div id="techJobsToday"></div>
 </div>
-<div class="card">
-<h3>📅 All Open Jobs</h3>
+<div class="card" style="padding:16px">
+<h3 style="margin:0 0 14px">📅 Other Open Jobs</h3>
 <div id="techJobsAll"></div>
 </div>
 </div>
@@ -1967,21 +2268,25 @@ canvas {
 </div>
 
 <!-- Modal for adding notes -->
-<div id="noteModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000">
-<div style="background:#fff;margin:5% auto;padding:20px;max-width:400px;border-radius:8px;max-height:85%;overflow-y:auto">
-<h3>✏️ Service Notes</h3>
-<textarea id="serviceNote" placeholder="Enter service notes here..." style="min-height:120px"></textarea>
-<label style="display:block;margin:10px 0;font-size:14px">📷 Add Photos:</label>
-<input type="file" id="servicePhotos" accept="image/*" multiple style="padding:8px">
-<div id="photoPreview" style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:10px 0"></div>
-<label style="display:block;margin:10px 0">
-<input type="checkbox" id="markFaulty"> ⚠️ Mark this lift as FAULTY
+<div id="noteModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:1000;overflow-y:auto">
+<div style="background:#1e293b;color:#f1f5f9;margin:4% auto 20px;padding:24px;max-width:480px;border-radius:14px;border:1px solid #334155;box-shadow:0 20px 60px rgba(0,0,0,0.5)">
+<h3 style="margin:0 0 6px;font-size:20px">✏️ Complete Job</h3>
+<p style="font-size:13px;color:#94a3b8;margin:0 0 16px">Add your service notes then tap Complete.</p>
+<label style="display:block;font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:6px;text-transform:uppercase">Service Notes *</label>
+<textarea id="serviceNote" placeholder="What work was done? Any issues found?" style="min-height:140px;width:100%;font-size:16px;padding:12px;border:1px solid #334155;border-radius:10px;background:#0f172a;color:#f1f5f9;resize:vertical;font-family:inherit;box-sizing:border-box"></textarea>
+<label style="display:block;margin:14px 0 6px;font-size:13px;font-weight:600;color:#94a3b8;text-transform:uppercase">📷 Add Photos (optional)</label>
+<input type="file" id="servicePhotos" accept="image/*" multiple style="padding:10px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#f1f5f9;width:100%;box-sizing:border-box">
+<div id="photoPreview" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0"></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0">
+<label style="display:flex;align-items:center;gap:10px;background:#2d1111;border:1px solid #7f1d1d;border-radius:10px;padding:14px;cursor:pointer;font-size:14px;font-weight:600;color:#fca5a5">
+<input type="checkbox" id="markFaulty" style="width:20px;height:20px;cursor:pointer"> ⚠️ Mark Faulty
 </label>
-<label style="display:block;margin:10px 0">
-<input type="checkbox" id="markIncomplete"> 📅 Job INCOMPLETE (need to return)
+<label style="display:flex;align-items:center;gap:10px;background:#1c2a3a;border:1px solid #334155;border-radius:10px;padding:14px;cursor:pointer;font-size:14px;font-weight:600;color:#93c5fd">
+<input type="checkbox" id="markIncomplete" style="width:20px;height:20px;cursor:pointer"> 📅 Incomplete
 </label>
-<button onclick="completeJob()" class="btn-success">Complete Job</button>
-<button onclick="closeNoteModal()" class="btn-secondary">Cancel</button>
+</div>
+<button onclick="completeJob()" style="width:100%;padding:18px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:12px;font-size:18px;font-weight:700;cursor:pointer;margin-bottom:10px">✅ Complete Job</button>
+<button onclick="closeNoteModal()" style="width:100%;padding:14px;background:#334155;color:#94a3b8;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
 </div>
 </div>
 
@@ -2003,6 +2308,45 @@ canvas {
 <input type="text" id="editOutstandingNote" placeholder="Outstanding amount details">
 <button onclick="updateLift()" class="btn-success">Update Lift</button>
 <button onclick="closeEditLiftModal()" class="btn-secondary">Cancel</button>
+</div>
+</div>
+
+<!-- Modal for editing clients -->
+<div id="editClientModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000">
+<div style="background:#1e293b;color:#f1f5f9;margin:5% auto;padding:24px;max-width:440px;border-radius:12px;max-height:85%;overflow-y:auto;border:1px solid #334155">
+<h3 style="margin:0 0 16px">✏️ Edit Client</h3>
+<input id="editClientName" placeholder="Company / Client Name *" style="margin-bottom:10px">
+<input id="editClientContact" placeholder="Contact Person" style="margin-bottom:10px">
+<input id="editClientPhone" placeholder="Phone" style="margin-bottom:10px">
+<input id="editClientEmail" placeholder="Email Address" style="margin-bottom:10px">
+<input id="editClientAddress" placeholder="Physical Address" style="margin-bottom:10px">
+<textarea id="editClientNotes" placeholder="Notes (optional)" style="resize:vertical;min-height:70px;width:100%;font-family:inherit;font-size:14px;padding:10px;border:1px solid #334155;border-radius:8px;background:#0f172a;color:#f1f5f9;margin-bottom:14px"></textarea>
+<button onclick="updateClient()" class="btn-success">Update Client</button>
+<button onclick="closeEditClientModal()" class="btn-secondary">Cancel</button>
+</div>
+</div>
+
+<!-- Modal for editing contracts -->
+<div id="editContractModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto">
+<div style="background:#1e293b;color:#f1f5f9;margin:4% auto 20px;padding:24px;max-width:480px;border-radius:12px;border:1px solid #334155">
+<h3 style="margin:0 0 16px">✏️ Edit Contract</h3>
+<input id="editContractNumber" placeholder="Contract Number *" style="margin-bottom:10px">
+<input id="editContractClient" placeholder="Client Name *" style="margin-bottom:10px">
+<select id="editContractType" style="margin-bottom:10px">
+<option value="Full Service">Full Service Contract</option>
+<option value="Basic Maintenance">Basic Maintenance Contract</option>
+<option value="Repair Only">Repair Only</option>
+<option value="Inspection Only">Inspection / Compliance Only</option>
+<option value="Parts & Labour">Parts & Labour</option>
+</select>
+<input type="date" id="editContractStart" style="margin-bottom:10px">
+<input type="date" id="editContractEnd" style="margin-bottom:10px">
+<input id="editContractVisits" type="number" placeholder="Visits per year" min="1" style="margin-bottom:10px">
+<input id="editContractFee" placeholder="Monthly / Annual Fee (R)" style="margin-bottom:10px">
+<textarea id="editContractCoverage" placeholder="Coverage details" style="resize:vertical;min-height:80px;width:100%;font-family:inherit;font-size:14px;padding:10px;border:1px solid #334155;border-radius:8px;background:#0f172a;color:#f1f5f9;margin-bottom:10px"></textarea>
+<textarea id="editContractNotes" placeholder="Notes (optional)" style="resize:vertical;min-height:60px;width:100%;font-family:inherit;font-size:14px;padding:10px;border:1px solid #334155;border-radius:8px;background:#0f172a;color:#f1f5f9;margin-bottom:14px"></textarea>
+<button onclick="updateContract()" class="btn-success">Update Contract</button>
+<button onclick="closeEditContractModal()" class="btn-secondary">Cancel</button>
 </div>
 </div>
 
@@ -2132,6 +2476,8 @@ function startRealtimeSync() {
     if (d.tickets)         tickets         = d.tickets;
     if (d.inspections)     inspections     = d.inspections;
     if (d.liftDocuments)   liftDocuments   = d.liftDocuments;
+    if (d.clients)         clients         = d.clients;
+    if (d.contracts)       contracts       = d.contracts;
     if (d.whatsappSettings) whatsappSettings = d.whatsappSettings;
     if (d.techLocations)   techLocations   = d.techLocations;
     // Debounce re-renders — Firebase can fire onSnapshot many times rapidly
@@ -2182,12 +2528,16 @@ let techs=[];
 let tickets=[];
 let inspections=[];
 let liftDocuments=[];
+let clients=[];
+let contracts=[];
 let whatsappSettings={language:'en',businessNumber:'',apiKey:'',quickReplies:[]};
 let techLocations={};
 let currentTech="";
 let currentAdmin="";
 let currentTicketIndex=-1;
 let editingLiftIndex=-1;
+let editingClientIndex=-1;
+let editingContractIndex=-1;
 let editingTicketIndex=-1;
 let reportingFaultLiftIndex=-1;
 let currentDocumentLiftId="";
@@ -2206,6 +2556,8 @@ async function save(){
       tickets,
       inspections,
       liftDocuments,
+      clients,
+      contracts,
       whatsappSettings,
       techLocations
     });
@@ -2544,6 +2896,8 @@ function showTab(tab,ev){
   if(tab==='calendar') renderCalendar();
   if(tab==='tracking') renderTechTracking();
   if(tab==='lifts') renderAdmin();
+  if(tab==='clients') renderClients();
+  if(tab==='contracts') renderContracts();
   if(tab==='settings'){
     renderQuickReplies();
     const langEl=document.getElementById('whatsappLanguage');
@@ -3576,67 +3930,105 @@ function checkIncomplete(){
 function renderTech(){
   if(!currentTech) return;
 
-  let myTickets=tickets.filter(t=>t.tech===currentTech && (t.status==='Open' || t.status==='In Progress'));
-  let today=new Date().toISOString().split('T')[0];
-  let todayJobs=myTickets.filter(t=>t.scheduledDate===today);
-  let allJobs=myTickets.filter(t=>t.scheduledDate!==today);
-  let completedJobs=tickets.filter(t=>t.tech===currentTech && t.status==='Done');
+  const today=new Date().toISOString().split('T')[0];
+  const myTickets=tickets.filter(t=>t.tech===currentTech && (t.status==='Open'||t.status==='In Progress'));
+  const todayJobs=myTickets.filter(t=>t.scheduledDate===today);
+  const overdueJobs=myTickets.filter(t=>t.scheduledDate&&t.scheduledDate<today);
+  const upcomingJobs=myTickets.filter(t=>!t.scheduledDate||t.scheduledDate>today);
+  const completedJobs=tickets.filter(t=>t.tech===currentTech&&t.status==='Done');
+
+  // Summary bar
+  const summaryBar=document.getElementById('techSummaryBar');
+  if(summaryBar){
+    summaryBar.innerHTML=`
+      <div class="tech-summary-stat"><div class="stat-val">${todayJobs.length}</div><div class="stat-label">Today</div></div>
+      <div class="tech-summary-stat"><div class="stat-val" style="color:${overdueJobs.length?'#ef4444':'#10b981'}">${overdueJobs.length}</div><div class="stat-label">Overdue</div></div>
+      <div class="tech-summary-stat"><div class="stat-val">${upcomingJobs.length}</div><div class="stat-label">Upcoming</div></div>
+      <div class="tech-summary-stat"><div class="stat-val" style="color:#10b981">${completedJobs.length}</div><div class="stat-label">Done</div></div>
+    `;
+  }
 
   // Today's Jobs
-  let techJobsToday=document.getElementById('techJobsToday');
+  const techJobsToday=document.getElementById('techJobsToday');
   if(!techJobsToday) return;
-  techJobsToday.innerHTML='';
   if(todayJobs.length===0){
-    techJobsToday.innerHTML='<p style="color:#999;text-align:center">No jobs scheduled for today</p>';
+    techJobsToday.innerHTML='<p style="color:var(--text-muted);text-align:center;padding:14px">No jobs scheduled for today ✓</p>';
   } else {
-    todayJobs.forEach((t,i)=>{
-      let idx=tickets.findIndex(ticket=>ticket.ticketNumber===t.ticketNumber);
-      techJobsToday.innerHTML+=renderTicketCard(t,idx);
-    });
+    techJobsToday.innerHTML=todayJobs.map(t=>{
+      const idx=tickets.findIndex(ticket=>ticket.ticketNumber===t.ticketNumber);
+      return renderTicketCard(t,idx);
+    }).join('');
   }
 
-  // All Open Jobs
-  let techJobsAll=document.getElementById('techJobsAll');
-  techJobsAll.innerHTML='';
-  if(allJobs.length===0){
-    techJobsAll.innerHTML='<p style="color:#999;text-align:center">No other jobs scheduled</p>';
+  // Overdue Jobs (shown in All Open section)
+  const allOtherJobs=[...overdueJobs,...upcomingJobs];
+  const techJobsAll=document.getElementById('techJobsAll');
+  if(allOtherJobs.length===0){
+    techJobsAll.innerHTML='<p style="color:var(--text-muted);text-align:center;padding:14px">No other open jobs</p>';
   } else {
-    allJobs.forEach((t,i)=>{
-      let idx=tickets.findIndex(ticket=>ticket.ticketNumber===t.ticketNumber);
-      techJobsAll.innerHTML+=renderTicketCard(t,idx);
-    });
+    techJobsAll.innerHTML=allOtherJobs.map(t=>{
+      const idx=tickets.findIndex(ticket=>ticket.ticketNumber===t.ticketNumber);
+      return renderTicketCard(t,idx);
+    }).join('');
   }
-  
+
   // Completed Jobs
-  let techJobsCompleted=document.getElementById('techJobsCompleted');
-  techJobsCompleted.innerHTML='';
+  const techJobsCompleted=document.getElementById('techJobsCompleted');
   if(completedJobs.length===0){
-    techJobsCompleted.innerHTML='<p style="color:#999;text-align:center">No completed jobs yet</p>';
+    techJobsCompleted.innerHTML='<p style="color:var(--text-muted);text-align:center;padding:14px">No completed jobs yet</p>';
   } else {
-    completedJobs.forEach((t,i)=>{
-      let completedDate=t.completed?new Date(t.completed).toLocaleDateString():'N/A';
-      techJobsCompleted.innerHTML+=`
-        <div class="card status-done">
-          <div style="background:#28a745;color:#fff;padding:6px;border-radius:4px;margin-bottom:8px;font-weight:bold">✅ Completed: ${completedDate}</div>
-          <strong>${t.lift.client} - ${t.lift.lift}</strong><br>
-          <span style="font-size:13px;color:#666">📍 ${t.lift.address}</span><br>
-          <span style="font-size:13px;color:#666">Type: ${t.jobType||'Service'}</span>
-        </div>
-      `;
-    });
+    // Show newest first
+    const sorted=[...completedJobs].sort((a,b)=>new Date(b.completed||0)-new Date(a.completed||0));
+    techJobsCompleted.innerHTML=sorted.map(t=>{
+      const completedDate=t.completed?new Date(t.completed).toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'}):'N/A';
+      const notes=t.notes&&t.notes.length>0?`<div style="font-size:13px;margin-top:6px;color:var(--text-secondary)">${escAttr(t.notes[t.notes.length-1].text)}</div>`:'';
+      return `<div class="tech-job-card" style="border-left:4px solid #10b981">
+        <div style="background:#14532d;color:#86efac;padding:6px 10px;border-radius:8px;margin-bottom:10px;font-weight:700;font-size:13px">✅ Completed ${completedDate}</div>
+        <div class="tech-job-title">${escAttr(t.lift.client)}</div>
+        <div class="tech-job-lift-id">Lift: ${escAttr(t.lift.lift)} &nbsp;·&nbsp; ${t.jobType||'Service'}</div>
+        <div class="tech-job-address">📍 ${escAttr(t.lift.address)}</div>
+        ${notes}
+      </div>`;
+    }).join('');
   }
-  
+
   // Populate lift dropdown for quick fault reporting
-  let techFaultLiftSelect=document.getElementById('techFaultLiftSelect');
+  const techFaultLiftSelect=document.getElementById('techFaultLiftSelect');
   if(techFaultLiftSelect){
-    techFaultLiftSelect.innerHTML='<option value="">Select Lift</option>';
+    techFaultLiftSelect.innerHTML='<option value="">-- Select a Lift --</option>';
     lifts.forEach((l,i)=>{
-      techFaultLiftSelect.innerHTML+=`<option value="${i}">${l.client} - ${l.lift}</option>`;
+      techFaultLiftSelect.innerHTML+=`<option value="${i}">${l.client} — ${l.lift}</option>`;
     });
   }
 }
 
 function renderTicketCard(t,i){
+  const today=new Date().toISOString().split('T')[0];
+  const isOverdue=t.scheduledDate && t.scheduledDate<today;
+  const isToday=t.scheduledDate===today;
+  const isInProgress=t.status==='In Progress';
+
+  // Status badge
+  let statusBadgeStyle='background:#334155;color:#94a3b8';
+  let statusLabel='Upcoming';
+  if(isInProgress){statusBadgeStyle='background:#f59e0b;color:#fff';statusLabel='🔄 In Progress';}
+  else if(isOverdue){statusBadgeStyle='background:#ef4444;color:#fff';statusLabel='⚠️ Overdue';}
+  else if(isToday){statusBadgeStyle='background:#10b981;color:#fff';statusLabel='📅 Today';}
+
+  // Job type badge
+  const jobType=t.jobType||'Service';
+  let typeStyle='background:#f59e0b;color:#fff';
+  let typeIcon='🔧';
+  if(jobType==='Faulty'){typeStyle='background:#ef4444;color:#fff';typeIcon='⚠️';}
+  else if(jobType==='Upgrade'){typeStyle='background:#7c3aed;color:#fff';typeIcon='⬆️';}
+  else if(jobType==='New Install'){typeStyle='background:#10b981;color:#fff';typeIcon='🆕';}
+  else if(jobType==='Inspection'){typeStyle='background:#3b82f6;color:#fff';typeIcon='🔍';}
+
+  // Priority badge
+  let priorityHtml='';
+  if(t.priority && t.priority!=='Normal'){
+    const pc=t.priority==='Urgent'?'#ef4444':t.priority==='High'?'#f97316':'#22c55e';
+    priorityHtml=`<span style="background:${pc};color:#fff;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;margin-left:6px">${t.priority}</span>`;
   // Get all historical notes for this lift from all completed tickets
   let liftHistory=[];
   tickets.forEach(ticket=>{
@@ -3689,12 +4081,40 @@ function renderTicketCard(t,i){
     
     historyHtml+=`</div></div>`;
   }
-  
-  // Current ticket notes (if any, for incomplete tickets)
+
+  // Card border class
+  let cardClass='tech-job-card';
+  if(isInProgress) cardClass+=' inprogress-card';
+  else if(isOverdue) cardClass+=' overdue-card';
+  else if(isToday) cardClass+=' today-card';
+
+  // Directions + phone
+  const mapsUrl=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(t.lift.address)}`;
+  const phone=t.lift.phone||'';
+  const callBtn=phone
+    ?`<a href="tel:${phone}" class="tech-btn tech-btn-call">📞 Call Client</a>`
+    :`<span style="padding:14px;font-size:13px;color:var(--text-muted);background:var(--bg-tertiary);border-radius:10px;display:flex;align-items:center;justify-content:center">No phone</span>`;
+
+  // In progress toggle
+  const progressBtn=isInProgress
+    ?''
+    :`<button onclick="markInProgress(${i})" class="tech-btn tech-btn-progress">🔄 Mark as In Progress</button>`;
+
+  // Instructions
+  const instructions=t.note?`<div style="background:var(--bg-tertiary);border-radius:8px;padding:12px;margin:12px 0;font-size:14px;line-height:1.5"><strong style="display:block;margin-bottom:4px;font-size:12px;color:var(--text-muted);text-transform:uppercase">Instructions</strong>${escAttr(t.note)}</div>`:'';
+
+  // Faulty warning
+  const faultyWarn=t.isFaulty?`<div style="background:#7f1d1d;color:#fca5a5;padding:8px 12px;border-radius:8px;margin-bottom:10px;font-weight:600">⚠️ This lift is marked as FAULTY</div>`:'';
+
+  // Current ticket notes (for in-progress)
   let currentNotesHtml='';
-  if(t.notes && t.notes.length>0 && (t.status==='Open' || t.status==='In Progress')){
-    currentNotesHtml='<div style="margin:10px 0"><strong>Current Ticket Notes:</strong></div><div>';
+  if(t.notes && t.notes.length>0 && (t.status==='Open'||t.status==='In Progress')){
+    currentNotesHtml='<div style="margin:12px 0"><strong style="font-size:13px;color:var(--text-muted)">CURRENT NOTES</strong>';
     t.notes.forEach(n=>{
+      currentNotesHtml+=`<div class="note-item" style="margin-top:6px"><strong>${escAttr(n.tech)}:</strong> ${escAttr(n.text)}<br><span class="note-time">${n.time}</span>`;
+      if(n.photos&&n.photos.length>0){
+        currentNotesHtml+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:6px">`;
+        n.photos.forEach(p=>{currentNotesHtml+=`<img src="${p.data}" style="width:100%;height:70px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="window.open('${p.data}','_blank')">`;});
       currentNotesHtml+=`<div class="note-item"><strong>${n.tech}:</strong> ${n.text}<br><span class="note-time">${n.time}</span>`;
       if(n.photos && n.photos.length>0){
         currentNotesHtml+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:5px">`;
@@ -3707,10 +4127,70 @@ function renderTicketCard(t,i){
     });
     currentNotesHtml+='</div>';
   }
-  
-  // Display initial ticket photos if any
+
+  // Ticket photos
   let ticketPhotosHtml='';
   if(t.photos && t.photos.length>0){
+    ticketPhotosHtml='<div style="margin:10px 0"><strong style="font-size:13px;color:var(--text-muted)">ATTACHED PHOTOS</strong><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:6px">';
+    t.photos.forEach(p=>{ticketPhotosHtml+=`<img src="${p.data}" style="width:100%;height:70px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="window.open('${p.data}','_blank')">`;});
+    ticketPhotosHtml+='</div></div>';
+  }
+
+  // History (collapsible)
+  let liftHistory=[];
+  tickets.forEach(ticket=>{
+    if(ticket.lift.lift===t.lift.lift && ticket.status==='Done' && ticket.notes && ticket.notes.length>0){
+      ticket.notes.forEach(note=>{liftHistory.push({ticketNum:ticket.ticketNumber,date:ticket.completed,jobType:ticket.jobType||'Service',tech:note.tech,text:note.text,time:note.time,photos:note.photos||[]});});
+    }
+  });
+  liftHistory.sort((a,b)=>new Date(b.date)-new Date(a.date));
+  let historyHtml='';
+  if(liftHistory.length>0){
+    const hid='hist-'+i+'-'+(t.ticketNumber||i);
+    historyHtml=`<button class="tech-history-toggle" onclick="document.getElementById('${hid}').style.display=document.getElementById('${hid}').style.display==='block'?'none':'block'">📚 Service History (${liftHistory.length} previous) ▾</button>`;
+    historyHtml+=`<div id="${hid}" class="tech-history-content">`;
+    liftHistory.forEach(h=>{
+      let jIcon={'Faulty':'⚠️','Upgrade':'⬆️','New Install':'🆕','Inspection':'🔍'}[h.jobType]||'🔧';
+      historyHtml+=`<div class="note-item" style="margin:6px 0"><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">${jIcon} ${h.jobType} · ${h.ticketNum} · ${h.time}</div><strong>${escAttr(h.tech)}:</strong> ${escAttr(h.text)}`;
+      if(h.photos&&h.photos.length>0){historyHtml+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:5px">`;h.photos.forEach(p=>{historyHtml+=`<img src="${p.data}" style="width:100%;height:55px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open('${p.data}','_blank')">`;});historyHtml+=`</div>`;}
+      historyHtml+=`</div>`;
+    });
+    historyHtml+=`</div>`;
+  }
+
+  const scheduledDisplay=t.scheduledDate?new Date(t.scheduledDate+'T00:00:00').toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'short',year:'numeric'}):'Not scheduled';
+
+  return `<div class="${cardClass}">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+    <span style="${statusBadgeStyle};padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700">${statusLabel}</span>
+    <span style="${typeStyle};padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700">${typeIcon} ${jobType}</span>
+    ${priorityHtml}
+  </div>
+  ${faultyWarn}
+  <div class="tech-job-title">${escAttr(t.lift.client)}</div>
+  <div class="tech-job-lift-id">Lift: ${escAttr(t.lift.lift)} &nbsp;·&nbsp; Ticket #${t.ticketNumber||'—'}</div>
+  <div class="tech-job-address">📍 ${escAttr(t.lift.address)}</div>
+  ${phone?`<div class="tech-job-phone">📞 ${escAttr(phone)}</div>`:''}
+  <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px">📆 ${scheduledDisplay}</div>
+  ${instructions}
+  ${ticketPhotosHtml}
+  ${currentNotesHtml}
+  <div class="tech-job-actions">
+    <a href="${mapsUrl}" target="_blank" class="tech-btn tech-btn-maps">🗺️ Directions</a>
+    ${callBtn}
+    ${progressBtn}
+    <button onclick="openDocumentsModal('${escAttr(t.lift.lift)}',true)" class="tech-btn tech-btn-docs">📄 Diagrams &amp; Manuals</button>
+    <button onclick="openNoteModal(${i})" class="tech-btn tech-btn-complete">✅ Complete Job</button>
+  </div>
+  ${historyHtml}
+</div>`;
+}
+
+async function markInProgress(i){
+  if(tickets[i].status==='In Progress') return;
+  tickets[i].status='In Progress';
+  await save();
+  renderTech();
     ticketPhotosHtml='<div style="margin:10px 0"><strong>Attached Photos:</strong></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:10px">';
     t.photos.forEach(p=>{
       ticketPhotosHtml+=`<img src="${p.url||p.data||''}" style="width:100%;height:80px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open(this.src,'_blank')">`;
@@ -4383,7 +4863,9 @@ function exportData(){
     techs:techs,
     tickets:tickets,
     inspections:inspections,
-    liftDocuments:liftDocuments
+    liftDocuments:liftDocuments,
+    clients:clients,
+    contracts:contracts
   };
   
   let dataStr=JSON.stringify(exportData,null,2);
@@ -4427,6 +4909,8 @@ function importData(input){
       tickets=importedData.tickets||[];
       inspections=importedData.inspections||[];
       liftDocuments=importedData.liftDocuments||[];
+      clients=importedData.clients||[];
+      contracts=importedData.contracts||[];
 
       await save();
 
@@ -5551,6 +6035,325 @@ async function resolveFault(ticketIdx){
 }
 
 // ── App Startup (Firebase) ──────────────────────────────────────
+// ── Service Contracts Functions ────────────────────────────────
+
+function contractStatus(c) {
+  if (!c.endDate) return 'Active';
+  const now = new Date();
+  const end = new Date(c.endDate);
+  const daysLeft = Math.floor((end - now) / (1000*60*60*24));
+  if (daysLeft < 0) return 'Expired';
+  if (daysLeft <= 60) return 'Expiring';
+  return 'Active';
+}
+
+function renderContracts() {
+  // Populate client datalist
+  const dl = document.getElementById('contractClientList');
+  if (dl) { dl.innerHTML = ''; clients.forEach(c => { const o = document.createElement('option'); o.value = c.name; dl.appendChild(o); }); }
+
+  const search = (document.getElementById('contractSearch')?.value || '').toLowerCase();
+  const statusFilter = document.getElementById('contractStatusFilter')?.value || '';
+  let active=0, expiring=0, expired=0;
+  contracts.forEach(c => {
+    const s = contractStatus(c);
+    if(s==='Active') active++;
+    else if(s==='Expiring') expiring++;
+    else if(s==='Expired') expired++;
+  });
+  const ka=document.getElementById('contract-kpi-active'); if(ka) ka.textContent=active;
+  const ke=document.getElementById('contract-kpi-expiring'); if(ke) ke.textContent=expiring;
+  const kx=document.getElementById('contract-kpi-expired'); if(kx) kx.textContent=expired;
+
+  const container = document.getElementById('contractsList');
+  if (!container) return;
+  const cards = [];
+
+  contracts.forEach((c, i) => {
+    const s = contractStatus(c);
+    if (statusFilter && s !== statusFilter) return;
+    const searchStr = (c.contractNumber + ' ' + c.client + ' ' + c.type + ' ' + (c.coverage||'')).toLowerCase();
+    if (search && !searchStr.includes(search)) return;
+
+    const daysLeft = c.endDate ? Math.floor((new Date(c.endDate) - new Date()) / (1000*60*60*24)) : null;
+    let statusStyle = 'background:#14532d;color:#86efac';
+    let statusLabel = '✅ Active';
+    let cardClass = 'contract-card active-contract';
+    if (s === 'Expiring') { statusStyle='background:#78350f;color:#fcd34d'; statusLabel=`⚠️ Expiring in ${daysLeft}d`; cardClass='contract-card expiring-contract'; }
+    else if (s === 'Expired') { statusStyle='background:#450a0a;color:#fca5a5'; statusLabel='❌ Expired'; cardClass='contract-card expired-contract'; }
+    else if (daysLeft !== null) { statusLabel = `✅ Active · ${daysLeft}d left`; }
+
+    const startDisplay = c.startDate ? new Date(c.startDate+'T00:00:00').toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'}) : '—';
+    const endDisplay   = c.endDate   ? new Date(c.endDate  +'T00:00:00').toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'}) : '—';
+
+    cards.push(`<div class="${cardClass}">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+    <div>
+      <div style="font-size:17px;font-weight:700;color:var(--text-primary)">${escAttr(c.client)}</div>
+      <div style="font-size:13px;color:var(--text-muted)">${escAttr(c.contractNumber)} &nbsp;·&nbsp; ${escAttr(c.type)}</div>
+    </div>
+    <span class="contract-status-badge" style="${statusStyle}">${statusLabel}</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;font-size:13px;color:var(--text-secondary);margin-bottom:10px">
+    <span>📅 Start: ${startDisplay}</span>
+    <span>📅 End: ${endDisplay}</span>
+    ${c.visits?`<span>🔄 ${c.visits} visit${c.visits>1?'s':''}/year</span>`:''}
+    ${c.fee?`<span>💰 R${escAttr(c.fee)}</span>`:''}
+  </div>
+  ${c.coverage?`<div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;background:var(--bg-tertiary);padding:10px;border-radius:8px"><strong>Coverage:</strong> ${escAttr(c.coverage)}</div>`:''}
+  ${c.notes?`<div style="font-size:12px;color:var(--text-muted);font-style:italic;margin-bottom:8px">📝 ${escAttr(c.notes)}</div>`:''}
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+    <button onclick="openEditContractModal(${i})" class="btn-small btn-secondary">Edit</button>
+    <button onclick="deleteContract(${i})" class="btn-small btn-danger">Delete</button>
+  </div>
+</div>`);
+  });
+
+  container.innerHTML = cards.length
+    ? cards.join('')
+    : `<p style="color:var(--text-muted);text-align:center;padding:20px">No contracts found</p>`;
+}
+
+function addContract() {
+  const contractNumber = document.getElementById('contractNumber').value.trim();
+  const client = document.getElementById('contractClient').value.trim();
+  const type = document.getElementById('contractType').value;
+  const startDate = document.getElementById('contractStart').value;
+  const endDate = document.getElementById('contractEnd').value;
+  const visits = document.getElementById('contractVisits').value.trim();
+  const fee = document.getElementById('contractFee').value.trim();
+  const coverage = document.getElementById('contractCoverage').value.trim();
+  const notes = document.getElementById('contractNotes').value.trim();
+
+  if (!contractNumber) { alert('Please enter a contract number'); return; }
+  if (!client) { alert('Please enter the client name'); return; }
+  if (startDate && endDate && endDate < startDate) { alert('End date cannot be before start date'); return; }
+
+  showLoader('Adding contract...');
+  setTimeout(async () => {
+    contracts.push({ id: Date.now()+'-'+Math.random().toString(36).substr(2,6), contractNumber, client, type, startDate, endDate, visits, fee, coverage, notes, createdAt: Date.now() });
+    await save();
+    renderContracts();
+    hideLoader();
+    ['contractNumber','contractClient','contractStart','contractEnd','contractVisits','contractFee','contractCoverage','contractNotes'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    document.getElementById('contractType').value='Full Service';
+    alert('Contract added!');
+  }, 100);
+}
+
+function openEditContractModal(i) {
+  editingContractIndex = i;
+  const c = contracts[i];
+  document.getElementById('editContractNumber').value = c.contractNumber;
+  document.getElementById('editContractClient').value = c.client;
+  document.getElementById('editContractType').value = c.type;
+  document.getElementById('editContractStart').value = c.startDate || '';
+  document.getElementById('editContractEnd').value = c.endDate || '';
+  document.getElementById('editContractVisits').value = c.visits || '';
+  document.getElementById('editContractFee').value = c.fee || '';
+  document.getElementById('editContractCoverage').value = c.coverage || '';
+  document.getElementById('editContractNotes').value = c.notes || '';
+  document.getElementById('editContractModal').style.display = 'block';
+}
+
+function closeEditContractModal() {
+  editingContractIndex = -1;
+  document.getElementById('editContractModal').style.display = 'none';
+}
+
+async function updateContract() {
+  if (editingContractIndex === -1) return;
+  const contractNumber = document.getElementById('editContractNumber').value.trim();
+  const client = document.getElementById('editContractClient').value.trim();
+  if (!contractNumber || !client) { alert('Contract number and client are required'); return; }
+  const c = contracts[editingContractIndex];
+  c.contractNumber = contractNumber;
+  c.client = client;
+  c.type = document.getElementById('editContractType').value;
+  c.startDate = document.getElementById('editContractStart').value;
+  c.endDate = document.getElementById('editContractEnd').value;
+  c.visits = document.getElementById('editContractVisits').value.trim();
+  c.fee = document.getElementById('editContractFee').value.trim();
+  c.coverage = document.getElementById('editContractCoverage').value.trim();
+  c.notes = document.getElementById('editContractNotes').value.trim();
+  await save();
+  renderContracts();
+  closeEditContractModal();
+  alert('Contract updated!');
+}
+
+function deleteContract(i) {
+  const c = contracts[i];
+  if (!confirm(`Delete contract "${c.contractNumber}" for "${c.client}"?`)) return;
+  showLoader('Deleting...');
+  setTimeout(async () => {
+    contracts.splice(i, 1);
+    await save();
+    renderContracts();
+    hideLoader();
+  }, 100);
+}
+
+// ── Client Database Functions ──────────────────────────────────
+
+function renderClients() {
+  const container = document.getElementById('clientCardsList');
+  if (!container) return;
+  const search = (document.getElementById('clientSearch')?.value || '').toLowerCase();
+  const cards = [];
+  let shown = 0;
+
+  clients.forEach((c, i) => {
+    const searchStr = (c.name + ' ' + c.contactPerson + ' ' + c.phone + ' ' + c.email + ' ' + c.address).toLowerCase();
+    if (search && !searchStr.includes(search)) return;
+    shown++;
+
+    // Count lifts linked to this client (match by name)
+    const linkedLifts = lifts.filter(l => l.client && l.client.toLowerCase() === c.name.toLowerCase());
+    const openTickets = tickets.filter(t => {
+      const liftObj = lifts.find(l => l.lift === t.lift);
+      return liftObj && liftObj.client && liftObj.client.toLowerCase() === c.name.toLowerCase() && t.status !== 'Done';
+    });
+
+    const liftBadge = linkedLifts.length
+      ? `<span class="client-lift-badge">🏢 ${linkedLifts.length} lift${linkedLifts.length > 1 ? 's' : ''}</span>`
+      : `<span style="font-size:11px;color:var(--text-muted)">No lifts yet</span>`;
+
+    const ticketBadge = openTickets.length
+      ? `<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:6px">🎫 ${openTickets.length} open</span>`
+      : '';
+
+    const whatsappLink = c.phone
+      ? `<a href="https://wa.me/${encodeURIComponent(c.phone)}" target="_blank" class="btn-small" style="background:#25d366;color:#fff;text-decoration:none;display:inline-block">WhatsApp</a>`
+      : '';
+
+    const emailLink = c.email
+      ? `<a href="mailto:${encodeURIComponent(c.email)}" class="btn-small" style="background:#6366f1;color:#fff;text-decoration:none;display:inline-block">Email</a>`
+      : '';
+
+    const notesHtml = c.notes
+      ? `<div style="font-size:12px;color:var(--text-muted);margin-top:6px;font-style:italic">📝 ${escAttr(c.notes)}</div>`
+      : '';
+
+    cards.push(`<div class="client-card-item">
+  <div class="client-card-header">
+    <strong>👤 ${escAttr(c.name)}</strong>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${liftBadge}${ticketBadge}</div>
+  </div>
+  <div class="client-card-details">
+    ${c.contactPerson ? `<span>🧑 ${escAttr(c.contactPerson)}</span>` : ''}
+    ${c.phone ? `<span>📞 ${escAttr(c.phone)}</span>` : ''}
+    ${c.email ? `<span>✉️ ${escAttr(c.email)}</span>` : ''}
+    ${c.address ? `<span>📍 ${escAttr(c.address)}</span>` : ''}
+  </div>
+  ${notesHtml}
+  <div class="client-card-actions" style="margin-top:10px">
+    <button onclick="viewClientLifts('${escAttr(c.name)}')" class="btn-small" style="background:#17a2b8;color:#fff">🏢 View Lifts</button>
+    ${whatsappLink}
+    ${emailLink}
+    <button onclick="openEditClientModal(${i})" class="btn-small btn-secondary">Edit</button>
+    <button onclick="deleteClient(${i})" class="btn-small btn-danger">Delete</button>
+  </div>
+</div>`);
+  });
+
+  container.innerHTML = cards.length
+    ? `<div class="client-cards-list">${cards.join('')}</div>`
+    : '<p style="color:var(--text-muted);text-align:center;padding:20px">No clients found</p>';
+
+  const countEl = document.getElementById('clientSearchCount');
+  if (countEl) countEl.textContent = search ? `Showing ${shown} of ${clients.length} clients` : `${clients.length} client${clients.length !== 1 ? 's' : ''} total`;
+}
+
+function addClient() {
+  const name = document.getElementById('clientDbName').value.trim();
+  const contactPerson = document.getElementById('clientDbContact').value.trim();
+  const phone = document.getElementById('clientDbPhone').value.trim();
+  const email = document.getElementById('clientDbEmail').value.trim();
+  const address = document.getElementById('clientDbAddress').value.trim();
+  const notes = document.getElementById('clientDbNotes').value.trim();
+
+  if (!name) {
+    alert('Please enter a client name');
+    return;
+  }
+  if (clients.find(c => c.name.toLowerCase() === name.toLowerCase())) {
+    alert('A client with that name already exists');
+    return;
+  }
+
+  showLoader('Adding client...');
+  setTimeout(async () => {
+    clients.push({ id: Date.now() + '-' + Math.random().toString(36).substr(2,6), name, contactPerson, phone, email, address, notes, createdAt: Date.now() });
+    await save();
+    renderClients();
+    hideLoader();
+    document.getElementById('clientDbName').value = '';
+    document.getElementById('clientDbContact').value = '';
+    document.getElementById('clientDbPhone').value = '';
+    document.getElementById('clientDbEmail').value = '';
+    document.getElementById('clientDbAddress').value = '';
+    document.getElementById('clientDbNotes').value = '';
+    alert('Client added successfully!');
+  }, 100);
+}
+
+function openEditClientModal(i) {
+  editingClientIndex = i;
+  const c = clients[i];
+  document.getElementById('editClientName').value = c.name;
+  document.getElementById('editClientContact').value = c.contactPerson || '';
+  document.getElementById('editClientPhone').value = c.phone || '';
+  document.getElementById('editClientEmail').value = c.email || '';
+  document.getElementById('editClientAddress').value = c.address || '';
+  document.getElementById('editClientNotes').value = c.notes || '';
+  document.getElementById('editClientModal').style.display = 'block';
+}
+
+function closeEditClientModal() {
+  editingClientIndex = -1;
+  document.getElementById('editClientModal').style.display = 'none';
+}
+
+async function updateClient() {
+  if (editingClientIndex === -1) return;
+  const name = document.getElementById('editClientName').value.trim();
+  if (!name) { alert('Client name is required'); return; }
+
+  clients[editingClientIndex].name = name;
+  clients[editingClientIndex].contactPerson = document.getElementById('editClientContact').value.trim();
+  clients[editingClientIndex].phone = document.getElementById('editClientPhone').value.trim();
+  clients[editingClientIndex].email = document.getElementById('editClientEmail').value.trim();
+  clients[editingClientIndex].address = document.getElementById('editClientAddress').value.trim();
+  clients[editingClientIndex].notes = document.getElementById('editClientNotes').value.trim();
+  await save();
+  renderClients();
+  closeEditClientModal();
+  alert('Client updated!');
+}
+
+function deleteClient(i) {
+  const c = clients[i];
+  if (!confirm(`Delete client "${c.name}"?\n\nThis only removes the client record — their lifts and tickets are not affected.`)) return;
+  showLoader('Deleting client...');
+  setTimeout(async () => {
+    clients.splice(i, 1);
+    await save();
+    renderClients();
+    hideLoader();
+  }, 100);
+}
+
+function viewClientLifts(clientName) {
+  const clientLifts = lifts.filter(l => l.client && l.client.toLowerCase() === clientName.toLowerCase());
+  if (clientLifts.length === 0) {
+    alert(`No lifts found for "${clientName}".\n\nYou can add a lift for this client in the Lifts tab.`);
+    return;
+  }
+  const lines = clientLifts.map(l => `• ${l.lift} — ${l.address} (every ${l.frequency} month${l.frequency > 1 ? 's' : ''})`).join('\n');
+  alert(`Lifts for "${clientName}" (${clientLifts.length}):\n\n${lines}\n\nTip: Open the Lifts tab to manage these lifts in detail.`);
+}
+
 window.onload = async function() {
   showLoader('Connecting to cloud...');
 
@@ -5587,6 +6390,8 @@ window.onload = async function() {
     if (cloudData.tickets)         tickets         = cloudData.tickets;
     if (cloudData.inspections)     inspections     = cloudData.inspections;
     if (cloudData.liftDocuments)   liftDocuments   = cloudData.liftDocuments;
+    if (cloudData.clients)         clients         = cloudData.clients;
+    if (cloudData.contracts)       contracts       = cloudData.contracts;
     if (cloudData.whatsappSettings) whatsappSettings = cloudData.whatsappSettings;
     if (cloudData.techLocations)   techLocations   = cloudData.techLocations;
 
