@@ -1,0 +1,24 @@
+{
+  "name": "Econo Home Lifts CRM",
+  "short_name": "Econo Lifts",
+  "description": "CRM and service management for Econo Home Lifts",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%230f172a' width='192' height='192' rx='24'/><rect x='40' y='40' width='112' height='112' fill='none' stroke='%233b82f6' stroke-width='8' rx='8'/><rect x='48' y='48' width='96' height='48' fill='%233b82f6' rx='4'/><line x1='40' y1='96' x2='152' y2='96' stroke='%233b82f6' stroke-width='6'/><path d='M 68 116 L 76 108 L 84 116' fill='none' stroke='%2360a5fa' stroke-width='5' stroke-linecap='round'/><path d='M 108 136 L 116 144 L 124 136' fill='none' stroke='%2360a5fa' stroke-width='5' stroke-linecap='round'/></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect fill='%230f172a' width='512' height='512' rx='64'/><rect x='106' y='106' width='300' height='300' fill='none' stroke='%233b82f6' stroke-width='20' rx='20'/><rect x='128' y='128' width='256' height='128' fill='%233b82f6' rx='10'/><line x1='106' y1='256' x2='406' y2='256' stroke='%233b82f6' stroke-width='16'/><path d='M 182 306 L 202 286 L 222 306' fill='none' stroke='%2360a5fa' stroke-width='14' stroke-linecap='round'/><path d='M 290 346 L 310 366 L 330 346' fill='none' stroke='%2360a5fa' stroke-width='14' stroke-linecap='round'/></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

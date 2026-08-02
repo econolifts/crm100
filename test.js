@@ -13,7 +13,7 @@ function log(status, name, detail = '') {
 }
 
 (async () => {
-  const browser = await chromium.launch({ args: ['--no-sandbox', '--ignore-certificate-errors'] });
+  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--ignore-certificate-errors', '--no-proxy-server'] });
   const context = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await context.newPage();
 

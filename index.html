@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Econo Home Lifts - Professional CRM and Service Management System">
 <meta name="theme-color" content="#0f172a">
+<link rel="manifest" href="/manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Econo Lifts">
@@ -787,6 +788,20 @@ a:hover {
   }
 }
 
+/* Small phone — 480px and below */
+@media (max-width: 480px) {
+  body { padding: 6px; }
+  .card { padding: 12px; border-radius: 10px; }
+  .tab-container { gap: 4px; padding: 6px; -webkit-overflow-scrolling: touch; }
+  .tab { font-size: 10px; padding: 8px 6px; min-width: 72px; min-height: 40px; border-radius: 6px; }
+  h2 { font-size: 18px; }
+  h3 { font-size: 15px; }
+  input, select, textarea, button { font-size: 16px !important; } /* prevent iOS/Android zoom on focus */
+  .kpi-value { font-size: 24px; }
+  .lift-card-item { padding: 10px; }
+  th, td { padding: 6px 4px; font-size: 11px; }
+}
+
 /* KPI Cards - Zoho/Monday Style */
 .kpi-card {
   background: var(--bg-card);
@@ -1505,6 +1520,7 @@ canvas {
   Developed by <strong style="color:var(--accent-primary)">Mari-Louise Uys</strong>
 </div>
 
+<span class="reset-link" onclick="resetAdminPassword()" style="display:block;margin-bottom:6px">🔑 Forgot Admin Password (resets login only, keeps all data)</span>
 <span class="reset-link" onclick="resetData()">🔄 Reset All Data (if having issues)</span>
 </div>
 
@@ -1779,6 +1795,13 @@ canvas {
 <input type="file" id="unpaidCsvFileInput" accept=".csv" style="padding:8px">
 <button onclick="importUnpaidCSV()" class="btn-warning">Import Unpaid Accounts</button>
 <div id="unpaidImportResult" style="margin-top:8px;font-size:13px"></div>
+</div>
+<div class="card">
+<h3>📅 Import Service Schedule from Pastel Sales Report</h3>
+<p style="font-size:13px;color:#666;margin-bottom:8px">Upload a Pastel/Sage <strong>Sales by Item Report</strong> (CSV). The most recent invoice date per client will be set as their <em>Last Service</em> date. No financial data is imported.</p>
+<input type="file" id="salesReportFileInput" accept=".csv" style="padding:8px">
+<button onclick="importSalesSchedule()" class="btn-warning">Import Service Dates</button>
+<div id="salesImportResult" style="margin-top:8px;font-size:13px"></div>
 </div>
 <div class="card">
 <h3>📋 All Lifts</h3>
@@ -2611,6 +2634,15 @@ function initializeDemoData(){
   alert('App initialized! Please log in with credentials provided by your administrator.\n\nIMPORTANT: Change default passwords after first login via Settings.');
 }
 
+async function resetAdminPassword(){
+  if(confirm('🔑 This will reset the admin username to "admin" and password to "admin123".\n\nAll your lifts, tickets, and technicians are kept — only the admin login is reset.\n\nContinue?')){
+    refreshData();
+    admins=[{username:'admin',pass:'admin123',name:'Main Admin'}];
+    await save();
+    alert('✅ Admin password reset!\n\nUsername: admin\nPassword: admin123\n\nPlease log in now and change your password in Settings.');
+  }
+}
+
 async function resetData(){
   if(confirm('⚠️ This will DELETE ALL DATA and reset to demo data.\n\nAre you absolutely sure?')){
     localStorage.removeItem('rememberedUser');
@@ -3234,6 +3266,76 @@ function parseCSVLine(line){
 }
 
 // Parse a Pastel/Sage "Customer Listing Report" (multi-row-per-customer format)
+async function importSalesSchedule(){
+  const fileInput=document.getElementById('salesReportFileInput');
+  const resultDiv=document.getElementById('salesImportResult');
+  const file=fileInput.files[0];
+  if(!file){resultDiv.textContent='⚠️ Please select a CSV file first.';return;}
+
+  const text=await file.text();
+  const lines=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+
+  // Detect Pastel Sales by Item Report: starts with sep=, and has Date/Document No./Customer header
+  const isSalesReport=lines[0].trim().toLowerCase()==='sep=,'&&
+    lines.length>2&&parseCSVLine(lines[1]).some(c=>c.trim().toLowerCase()==='date')&&
+    parseCSVLine(lines[1]).some(c=>c.trim().toLowerCase()==='customer');
+  if(!isSalesReport){
+    resultDiv.innerHTML='<span style="color:#ef4444">❌ File not recognised as a Pastel Sales by Item Report.</span>';
+    return;
+  }
+
+  const header=parseCSVLine(lines[1]).map(c=>c.trim().toLowerCase());
+  const dateCol=header.indexOf('date');
+  const custCol=header.indexOf('customer');
+  const docCol=header.findIndex(c=>c.includes('document'));
+
+  // Build map: customer name → latest service date (timestamp)
+  const latestDate={};
+  for(let i=2;i<lines.length;i++){
+    const row=parseCSVLine(lines[i]);
+    if(!row||row.length<3) continue;
+    const doc=(row[docCol]||'').trim();
+    // Skip credit notes, totals, category header rows (empty customer), grand total
+    if(!doc||doc.startsWith('CRN')) continue;
+    const cust=(row[custCol]||'').trim();
+    if(!cust||cust.toLowerCase().startsWith('total')||cust.toLowerCase().startsWith('grand')) continue;
+    const dateStr=(row[dateCol]||'').trim(); // "dd/mm/yyyy"
+    const parts=dateStr.split('/');
+    if(parts.length!==3) continue;
+    const ts=new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).getTime();
+    if(isNaN(ts)) continue;
+    if(!latestDate[cust]||ts>latestDate[cust]) latestDate[cust]=ts;
+  }
+
+  const customers=Object.keys(latestDate);
+  if(!customers.length){
+    resultDiv.innerHTML='<span style="color:#ef4444">❌ No valid service rows found.</span>';
+    return;
+  }
+
+  let updated=0,notFound=[];
+  for(const custName of customers){
+    const idx=lifts.findIndex(l=>l.client.toLowerCase()===custName.toLowerCase());
+    if(idx>=0){
+      lifts[idx].lastService=latestDate[custName];
+      updated++;
+    } else {
+      notFound.push(custName);
+    }
+  }
+
+  renderAdmin();
+  fileInput.value='';
+  await save();
+
+  let html=`<span style="color:#22c55e">✅ Updated <strong>${updated}</strong> lift(s) with latest service date.</span>`;
+  if(notFound.length){
+    html+=`<br><span style="color:#f59e0b">⚠️ ${notFound.length} client(s) not matched to any lift:</span>`;
+    html+=`<ul style="margin:4px 0 0 16px;font-size:12px;color:var(--text-muted)">${notFound.map(n=>`<li>${n}</li>`).join('')}</ul>`;
+  }
+  resultDiv.innerHTML=html;
+}
+
 function parsePastelCustomers(lines){
   let customers=[];
   let i=0;

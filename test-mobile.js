@@ -23,7 +23,7 @@ function vendorRoute(page) {
 }
 
 (async () => {
-  const browser = await chromium.launch({ args: ['--no-sandbox', '--ignore-certificate-errors'] });
+  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--ignore-certificate-errors', '--no-proxy-server'] });
 
   // ── Test A: Pixel 5 portrait (393×851) ───────────────────
   console.log(`\n${'═'.repeat(55)}`);
