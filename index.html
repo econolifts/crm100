@@ -2588,7 +2588,10 @@ async function save(){
   } finally {
     _saveInProgress = false;
   }
-  // Keep rememberedUser in localStorage (device-specific login preference)
+  // Cache credentials locally so offline login works with real password
+  try {
+    localStorage.setItem('cachedAppData', JSON.stringify({ admins, techs }));
+  } catch(e) {}
 }
 
 // refreshData is handled automatically by Firebase realtime listener (startRealtimeSync)
@@ -6486,7 +6489,15 @@ window.onload = async function() {
   }
 
   if (!result.success) {
-    // All retries failed — show error banner, login still usable with cached/default credentials
+    // All retries failed — load cached credentials from localStorage so offline login still works
+    try {
+      const cached = localStorage.getItem('cachedAppData');
+      if (cached) {
+        const d = JSON.parse(cached);
+        if (d.admins) admins = d.admins;
+        if (d.techs)  techs  = d.techs;
+      }
+    } catch(e) {}
     setSyncStatus('⚠️ No cloud connection — using last saved data. Check your internet and refresh.', 'err');
     // Still start sync so it reconnects when network returns
     startRealtimeSync();
@@ -6511,6 +6522,9 @@ window.onload = async function() {
     if (cloudData.contracts)       contracts       = cloudData.contracts;
     if (cloudData.whatsappSettings) whatsappSettings = cloudData.whatsappSettings;
     if (cloudData.techLocations)   techLocations   = cloudData.techLocations;
+
+    // Cache credentials locally so offline login works next time
+    try { localStorage.setItem('cachedAppData', JSON.stringify({ admins, techs })); } catch(e) {}
 
     // Migration: ensure Ivan Uys technician exists
     if (!techs.find(t => t.username === 'ivan')) {
