@@ -1497,6 +1497,7 @@ canvas {
 </label>
 <button onclick="login()">Login</button>
 <p id="msg" style="color:red;text-align:center"></p>
+<div id="syncStatus" style="display:none;padding:6px 10px;border-radius:6px;font-size:12px;text-align:center;margin-top:4px"></div>
 
 <div style="margin-top:12px;text-align:center">
   <button onclick="document.getElementById('defaultLogins').style.display=document.getElementById('defaultLogins').style.display==='block'?'none':'block'" style="background:none;border:1px solid var(--border-color);color:var(--text-muted);padding:6px 16px;border-radius:8px;font-size:12px;cursor:pointer">Need login help?</button>
@@ -2654,9 +2655,12 @@ async function resetData(){
 
 function login(){
   showLoader('Logging in...');
+  // Safety: never leave the loader stuck
+  const loginTimeout = setTimeout(() => hideLoader(), 5000);
 
   // Use setTimeout to allow loader to show
   setTimeout(() => {
+    clearTimeout(loginTimeout);
     // Always refresh data from localStorage before login to pick up any changes from admin
     refreshData();
 
@@ -6137,6 +6141,14 @@ async function resolveFault(ticketIdx){
 }
 
 // ── App Startup (Firebase) ──────────────────────────────────────
+function setSyncStatus(msg, color) {
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  if (!msg) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.style.background = color === 'ok' ? '#d1fae5' : color === 'err' ? '#fee2e2' : '#fef3c7';
+  el.style.color = color === 'ok' ? '#065f46' : color === 'err' ? '#991b1b' : '#92400e';
+  el.textContent = msg;
 // ── Service Contracts Functions ────────────────────────────────
 
 function contractStatus(c) {
@@ -6457,7 +6469,8 @@ function viewClientLifts(clientName) {
 }
 
 window.onload = async function() {
-  showLoader('Connecting to cloud...');
+  // Show login form immediately — don't block with overlay
+  setSyncStatus('🔄 Connecting to cloud…', 'warn');
 
   // Load data from Firebase with retry on network failure
   let result = null;
@@ -6473,9 +6486,11 @@ window.onload = async function() {
   }
 
   if (!result.success) {
-    // All retries failed — show error but DO NOT overwrite data with demo data
+    // All retries failed — show error banner, login still usable with cached/default credentials
+    setSyncStatus('⚠️ No cloud connection — using last saved data. Check your internet and refresh.', 'err');
+    // Still start sync so it reconnects when network returns
+    startRealtimeSync();
     hideLoader();
-    alert('Could not connect to the cloud database. Please check your internet connection and refresh the page to try again.');
     return;
   }
 
@@ -6505,6 +6520,7 @@ window.onload = async function() {
   }
 
   // Start real-time sync so all phones update instantly
+  setSyncStatus('✅ Connected to cloud', 'ok');
   startRealtimeSync();
 
   // Auto-login if user chose "Remember Me" on this device
@@ -6542,6 +6558,8 @@ window.onload = async function() {
   }
 
   hideLoader();
+  setSyncStatus('✅ Connected to cloud', 'ok');
+  setTimeout(() => setSyncStatus(null), 3000);
 
   // PWA Installation Support
   let deferredPrompt;
